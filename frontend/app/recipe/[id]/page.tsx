@@ -65,7 +65,7 @@ export default function RecipeDetail() {
           alt={recipe.name} 
           className="w-full h-full object-cover" 
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-white via-white/20 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-white via-white/20 to-transparent" />
         
         <button 
           onClick={() => router.push('/')}
@@ -128,7 +128,7 @@ export default function RecipeDetail() {
           <div className="space-y-6">
             {recipe.prep_steps.map((step: string, idx: number) => (
               <div key={idx} className="flex gap-6 p-6 rounded-3xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-                <span className="flex-shrink-0 w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-slate-200">
+                <span className="shrink-0 w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-slate-200">
                   {idx + 1}
                 </span>
                 <p className="text-slate-600 text-lg leading-relaxed pt-1">
@@ -178,9 +178,9 @@ export default function RecipeDetail() {
           </div>
 
           {/* Smart Suggestion (Locked Scope: Pairings) */}
-          <div className="bg-green-50 rounded-[2rem] p-8 border border-green-100">
+          <div className="bg-green-50 rounded-4xl p-8 border border-green-100">
             <h3 className="font-black text-green-900 mb-4 flex items-center gap-2 uppercase tracking-tight text-sm">
-              <CheckCircle2 className="w-5 h-5" /> Chef's Pairing Suggestion
+              <CheckCircle2 className="w-5 h-5" /> Chef&apos;s Pairing Suggestion
             </h3>
             <p className="text-green-800 text-lg font-medium leading-relaxed">
               This {recipe.cuisine} classic pairs beautifully with fresh herbs or steamed jasmine rice. 
