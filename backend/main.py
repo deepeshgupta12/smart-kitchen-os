@@ -21,7 +21,7 @@ def read_root():
 def health_check(db: Session = Depends(database.get_db)):
     try:
         # Check if the database is actually reachable
-        db.execute(models.Base.metadata.tables['dishes'].select().limit(1))
+        db.execute("SELECT 1")
         return {"status": "up and running", "database": "connected"}
     except Exception as e:
         return {"status": "error", "detail": str(e)}

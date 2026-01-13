@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, Float, Table, JSON
 from sqlalchemy.orm import relationship
-from .database import Base
+from database import Base  # Absolute import: No dot before 'database'
 
 # Many-to-Many Link for Pairing Dishes
 pairing_table = Table(
@@ -39,7 +39,7 @@ class Ingredient(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
-    category = Column(String) # Produce, Dairy, Pantry (For warehouse/aisle sorting)
+    category = Column(String) # Produce, Dairy, Pantry
 
 class DishIngredient(Base):
     __tablename__ = "dish_ingredients"
@@ -48,7 +48,7 @@ class DishIngredient(Base):
     dish_id = Column(Integer, ForeignKey("dishes.id"))
     ingredient_id = Column(Integer, ForeignKey("ingredients.id"))
     quantity = Column(Float)
-    unit = Column(String) # e.g., "spoon", "grams", "piece"
+    unit = Column(String)
 
     dish = relationship("Dish", back_populates="ingredients")
     ingredient = relationship("Ingredient")
