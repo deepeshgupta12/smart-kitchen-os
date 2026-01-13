@@ -26,6 +26,7 @@ export default function Home() {
   }, []);
 
   const handleExtractionSuccess = (newRecipe: any) => {
+    // newRecipe now contains the Database ID from the updated backend
     setRecipes((prev) => [newRecipe, ...prev]);
   };
 
@@ -79,8 +80,10 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {loading ? (
-            <div className="col-span-full py-20 text-center">
-              <div className="w-10 h-10 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            // FIX: Added 'key' to prevent React Console Error
+            <div key="loader" className="col-span-full py-20 text-center">
+              <div className="w-10 h-10 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-slate-500 font-bold">Synchronizing Kitchen Data...</p>
             </div>
           ) : recipes.length > 0 ? (
             recipes.map((recipe) => (
@@ -91,16 +94,16 @@ export default function Home() {
                     alt={recipe.name} 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                   />
-                  <div className="absolute top-4 right-4 bg-white/90 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-800">
+                  <div className="absolute top-4 right-4 bg-white/90 px-3 py-1 rounded-lg text-[10px] font-black uppercase text-slate-800">
                     {recipe.cuisine || 'Global'}
                   </div>
                 </div>
 
                 <div className="p-7">
                   <div className="flex items-center gap-2 mb-4">
-                    {/* FIXED LINE: Defensive check for meal_type before splitting */}
+                    {/* FIX: Defensive check for split property */}
                     <span className="text-[10px] font-black px-2.5 py-1 bg-green-50 text-green-700 rounded-lg uppercase tracking-tight">
-                      {recipe.meal_type ? recipe.meal_type.split(',')[0] : 'Meal'}
+                      {recipe.meal_type && recipe.meal_type !== "Meal" ? recipe.meal_type.split(',')[0] : 'Dish'}
                     </span>
                     <div className="flex items-center gap-1 text-slate-400">
                       <Sparkles className="w-3 h-3" />
@@ -123,8 +126,9 @@ export default function Home() {
                       </span>
                     </div>
                     
+                    {/* Navigation fix: Uses the Database ID returned from backend */}
                     <Link href={`/recipe/${recipe.id}`}>
-                      <button className="bg-slate-900 text-white p-3 rounded-xl hover:bg-green-600 transition-all shadow-lg group-hover:translate-x-1">
+                      <button className="bg-slate-900 text-white p-3 rounded-xl hover:bg-green-600 transition-all shadow-lg">
                         <ArrowRight className="w-5 h-5" />
                       </button>
                     </Link>
@@ -133,8 +137,8 @@ export default function Home() {
               </div>
             ))
           ) : (
-            <div className="col-span-full border-2 border-dashed border-slate-200 rounded-[3rem] h-80 flex items-center justify-center text-slate-400">
-               <p className="font-bold">Collection is empty.</p>
+            <div key="empty" className="col-span-full border-2 border-dashed border-slate-200 rounded-[3rem] h-80 flex flex-col items-center justify-center text-slate-400">
+               <p className="font-bold">No recipes yet.</p>
             </div>
           )}
         </div>

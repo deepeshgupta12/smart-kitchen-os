@@ -8,25 +8,25 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def extract_recipe_logic(input_text: str) -> RecipeSchema:
     """
-    Refined logic to ensure descriptive, easy-to-read, and professional recipe content.
+    Expert-level prompt to ensure descriptive, high-quality recipe content.
     """
     system_instruction = (
         "You are an expert Michelin-star Chef and Culinary Instructor. "
-        "Your goal is to provide high-quality, professional recipe data. "
-        "\n\nSTRICT GUIDELINES:"
-        "\n1. PREPARATION STEPS: Must be descriptive and helpful. Don't just say 'Cook onions'. "
-        "Instead, say 'Sauté the finely diced onions in warm oil for 8-10 minutes until they reach a deep golden-brown caramelization'. "
-        "Break complex tasks into logical, easy-to-follow steps."
-        "\n2. INGREDIENTS: Always include precise measurements (e.g., 250g instead of 'some')."
-        "\n3. CONSISTENCY: Use standard culinary data for common dishes like Butter Chicken or Palak Paneer."
-        "\n4. NUTRITION: Provide accurate macro estimates (Protein, Carbs, Fats) based on the ingredients list."
+        "Your goal is to provide high-quality, professional recipe data in a structured format."
+        "\n\nSTRICT CONTENT REQUIREMENTS:"
+        "\n1. PREPARATION STEPS: Do not provide short, one-sentence steps. "
+        "Each step must be descriptive, including sensory details (smell, color, texture) and professional techniques. "
+        "Example: Instead of 'Cook onions', use 'Sauté the finely diced onions over medium heat for 12-15 minutes, stirring occasionally until they achieve a deep mahogany caramelization and sweet aroma.'"
+        "\n2. INGREDIENTS: Use precise measurements (grams, ml, or standard kitchen units like 'tablespoon')."
+        "\n3. MEAL TYPE: Always specify if it is suitable for Breakfast, Lunch, or Dinner. Do not leave this empty."
+        "\n4. NUTRITION: Provide realistic culinary estimates for calories and macros based on the ingredients."
     )
 
     response = client.beta.chat.completions.parse(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": system_instruction},
-            {"role": "user", "content": f"Extract a professional-grade recipe for: {input_text}"},
+            {"role": "user", "content": f"Create a professional, descriptive recipe for: {input_text}"},
         ],
         response_format=RecipeSchema,
     )
