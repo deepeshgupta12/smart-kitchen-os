@@ -7,6 +7,7 @@ class IngredientSchema(BaseModel):
     quantity: float
     unit: str
     category: Optional[str] = "Pantry"
+    thumbnail_url: Optional[str] = None # Added here
 
 class NutritionSchema(BaseModel):
     calories: int
@@ -32,6 +33,7 @@ class RecipeResponse(BaseModel):
     cuisine: Optional[str] = "Global"
     meal_type: Optional[str] = "Meal"
     nutrition: Optional[dict] = None
+    thumbnail_url: Optional[str] = None # CRITICAL: Ensure this exists
     
     class Config:
         from_attributes = True

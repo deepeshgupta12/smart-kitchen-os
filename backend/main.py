@@ -50,17 +50,17 @@ def get_recipe(recipe_id: int, db: Session = Depends(database.get_db)):
 @app.post("/extract-recipe", response_model=schemas.RecipeResponse)
 def extract_recipe(text_input: str, db: Session = Depends(database.get_db)):
     try:
-        # 1. Extract Text Data
+        # 1. AI Text Extraction
         data = ai_service.extract_recipe_logic(text_input)
         
-        # 2. GENERATE RECIPE IMAGE (New Logic)
-        dish_image_url = ai_service.generate_professional_food_image(f"{data.cuisine} {data.name}")
+        # 2. Generate Dish Image (DALL-E 3)
+        dish_image = ai_service.generate_professional_image(f"{data.cuisine} {data.name}")
         
-        # 3. Create Dish with the generated Image URL
+        # 3. Create Dish
         new_dish = models.Dish(
             name=data.name,
             description=data.description,
-            thumbnail_url=dish_image_url, # Storing the DALL-E 3 URL
+            thumbnail_url=dish_image, 
             cuisine=data.cuisine,
             meal_type=", ".join(data.suitable_for) if data.suitable_for else "Meal",
             prep_steps=data.prep_steps,
@@ -70,22 +70,16 @@ def extract_recipe(text_input: str, db: Session = Depends(database.get_db)):
         db.commit()
         db.refresh(new_dish)
 
-        # 4. Handle Ingredients & Individual Images
+        # 4. Save Ingredients & Generate Images
         for ing in data.ingredients:
             db_ing = db.query(models.Ingredient).filter(models.Ingredient.name == ing.name).first()
             if not db_ing:
-                # Generate high-quality ingredient photo
-                ing_image = ai_service.generate_professional_food_image(f"fresh raw {ing.name}")
-                db_ing = models.Ingredient(
-                    name=ing.name, 
-                    category=ing.category, 
-                    thumbnail_url=ing_image
-                )
+                ing_image = ai_service.generate_professional_image(f"fresh raw {ing.name}")
+                db_ing = models.Ingredient(name=ing.name, category=ing.category, thumbnail_url=ing_image)
                 db.add(db_ing)
                 db.commit()
                 db.refresh(db_ing)
             
-            # Map to Dish
             dish_ing = models.DishIngredient(
                 dish_id=new_dish.id, 
                 ingredient_id=db_ing.id, 
@@ -96,7 +90,7 @@ def extract_recipe(text_input: str, db: Session = Depends(database.get_db)):
         
         db.commit()
         db.refresh(new_dish)
-        return new_dish
+        return new_dish # This now includes the thumbnail_url thanks to schemas.py
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -152,3 +146,45 @@ def get_shopping_list(db: Session = Depends(database.get_db)):
     ]
     
     return shopping_list
+
+@app.get("/health-stats/{date_str}")
+def get_health_stats(date_str: str, db: Session = Depends(database.get_db)):
+    """
+    Calculates total nutritional intake for a specific date 
+    and returns a 'Goal vs. Actual' comparison.
+    """
+    # 1. Fetch all planned meals for the requested date
+    planned_meals = db.query(models.MealPlan).filter(
+        models.MealPlan.planned_date == date_str
+    ).all()
+    
+    actual_stats = {"calories": 0, "protein": 0, "carbs": 0, "fats": 0}
+    
+    # 2. Sum up the nutrition from each dish
+    for plan in planned_meals:
+        nutr = plan.dish.nutrition
+        if nutr:
+            actual_stats["calories"] += nutr.get("calories", 0)
+            # Helper to strip 'g' and convert to int for summing
+            actual_stats["protein"] += int(nutr.get("protein", "0").replace('g', ''))
+            actual_stats["carbs"] += int(nutr.get("carbs", "0").replace('g', ''))
+            actual_stats["fats"] += int(nutr.get("fats", "0").replace('g', ''))
+            
+    # 3. Get User Goals (Assuming a single user profile for now)
+    profile = db.query(models.UserProfile).first()
+    if not profile:
+        profile = models.UserProfile()
+        db.add(profile)
+        db.commit()
+
+    return {
+        "date": date_str,
+        "actual": actual_stats,
+        "goals": {
+            "calories": profile.daily_calorie_goal,
+            "protein": profile.daily_protein_goal,
+            "carbs": profile.daily_carbs_goal,
+            "fats": profile.daily_fats_goal
+        },
+        "remaining_calories": max(0, profile.daily_calorie_goal - actual_stats["calories"])
+    }

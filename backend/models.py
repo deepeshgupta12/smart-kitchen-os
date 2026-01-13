@@ -68,3 +68,13 @@ class ShoppingListItem(Base):
     unit = Column(String)
     is_purchased = Column(Boolean, default=False)
     ingredient = relationship("Ingredient")
+
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    daily_calorie_goal = Column(Integer, default=2000)
+    # Using String to allow for 'g' suffix (e.g., "150g")
+    daily_protein_goal = Column(String, default="150g")
+    daily_carbs_goal = Column(String, default="250g")
+    daily_fats_goal = Column(String, default="70g")
