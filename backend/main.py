@@ -124,6 +124,40 @@ def remove_from_planner(plan_id: int, db: Session = Depends(database.get_db)):
     db.commit()
     return {"message": "Meal removed from planner"}
 
+@app.post("/meal-planner/{plan_id}/complete")
+def complete_meal(plan_id: int, db: Session = Depends(database.get_db)):
+    """
+    V5.3 Logic: Deduct ingredients from pantry when a meal is marked 'Cooked'.
+    """
+    plan_entry = db.query(models.MealPlan).filter(models.MealPlan.id == plan_id).first()
+    if not plan_entry:
+        raise HTTPException(status_code=404, detail="Plan entry not found")
+
+    dish = plan_entry.dish
+    
+    # 1. Deduct each ingredient from the pantry
+    for dish_ing in dish.ingredients:
+        pantry_item = db.query(models.PantryItem).filter(
+            models.PantryItem.ingredient_id == dish_ing.ingredient_id
+        ).first()
+        
+        if pantry_item:
+            # Check for unit mismatches before deduction
+            deduction_qty = dish_ing.quantity
+            if pantry_item.unit.lower() != dish_ing.unit.lower():
+                # AI-assisted conversion for accurate deduction
+                deduction_qty = ai_service.get_unit_conversion(
+                    dish_ing.ingredient.name, dish_ing.quantity, dish_ing.unit, pantry_item.unit
+                )
+            
+            pantry_item.current_quantity = max(0, pantry_item.current_quantity - deduction_qty)
+
+    # 2. Remove the meal from the planner after completion
+    db.delete(plan_entry)
+    db.commit()
+    
+    return {"status": "Meal completed and pantry inventory updated"}
+
 # --- HEALTH INTELLIGENCE ---
 
 @app.get("/health-stats/{date_str}")
@@ -166,6 +200,7 @@ def recommend_meal(
     health_data = get_health_stats(today_str, db)
     remaining = health_data["remaining_calories"]
 
+    # This join was already correct/explicit
     ingredients = db.query(models.Ingredient.name).join(
         models.DishIngredient, models.Ingredient.id == models.DishIngredient.ingredient_id
     ).join(
@@ -177,7 +212,7 @@ def recommend_meal(
     
     return {"recommendation": recommendation}
 
-# --- NEW: DYNAMIC PANTRY & SMART SHOPPING (V5.3) ---
+# --- DYNAMIC PANTRY & SMART SHOPPING ---
 
 @app.get("/pantry")
 def get_pantry(db: Session = Depends(database.get_db)):
@@ -189,7 +224,6 @@ def get_pantry(db: Session = Depends(database.get_db)):
 
 @app.post("/pantry/purchase")
 def update_pantry(item_name: str, quantity: float, unit: str, db: Session = Depends(database.get_db)):
-    # Partial matching to handle "Tomatoes" vs "Tomato"
     ing = db.query(models.Ingredient).filter(models.Ingredient.name.ilike(f"%{item_name}%")).first()
     if not ing: raise HTTPException(status_code=404, detail="Ingredient not found")
     
@@ -206,14 +240,23 @@ def update_pantry(item_name: str, quantity: float, unit: str, db: Session = Depe
 def get_shopping_list(db: Session = Depends(database.get_db)):
     """
     V5.3 ENHANCEMENT: AI-Driven Unit Normalization for Gap Analysis.
+    FIXED: Explicit joins to resolve 'Don't know how to join to MealPlan' error.
     """
     required = (
         db.query(
-            models.Ingredient.name, models.Ingredient.category, models.Ingredient.thumbnail_url,
-            func.sum(models.DishIngredient.quantity).label("gross_qty"), models.DishIngredient.unit
+            models.Ingredient.name, 
+            models.Ingredient.category, 
+            models.Ingredient.thumbnail_url,
+            func.sum(models.DishIngredient.quantity).label("gross_qty"), 
+            models.DishIngredient.unit
         )
-        .join(models.DishIngredient).join(models.MealPlan).group_by(
-            models.Ingredient.name, models.Ingredient.category, models.Ingredient.thumbnail_url, models.DishIngredient.unit
+        .join(models.DishIngredient, models.Ingredient.id == models.DishIngredient.ingredient_id)
+        .join(models.MealPlan, models.DishIngredient.dish_id == models.MealPlan.dish_id)
+        .group_by(
+            models.Ingredient.name, 
+            models.Ingredient.category, 
+            models.Ingredient.thumbnail_url, 
+            models.DishIngredient.unit
         ).all()
     )
 
@@ -228,9 +271,7 @@ def get_shopping_list(db: Session = Depends(database.get_db)):
         if stock_data:
             on_hand_qty, on_hand_unit = stock_data
             
-            # Use AI for conversion if units mismatch
             if on_hand_unit.lower() != item.unit.lower():
-                # Convert what we HAVE in pantry to the unit the RECIPE needs
                 converted_stock = ai_service.get_unit_conversion(
                     item.name, on_hand_qty, on_hand_unit, item.unit
                 )
