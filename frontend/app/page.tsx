@@ -56,10 +56,10 @@ export default function Home() {
             <Calendar className="w-6 h-6" />
             <span className="text-[10px] uppercase font-bold mt-1">Planner</span>
           </Link>
-          <button className="flex flex-col items-center hover:text-green-600 transition-colors">
-            <ShoppingBasket className="w-6 h-6" />
-            <span className="text-[10px] uppercase font-bold mt-1">Cart</span>
-          </button>
+          <Link href="/cart" className="flex flex-col items-center hover:text-green-600 transition-colors">
+          <ShoppingBasket className="w-6 h-6" />
+          <span className="text-[10px] uppercase font-bold mt-1">Cart</span>
+          </Link>
         </div>
       </nav>
 

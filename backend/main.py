@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import date, timedelta
 import database
 import models
@@ -94,3 +95,37 @@ def add_to_planner(plan: schemas.MealPlanCreate, db: Session = Depends(database.
 def get_meal_plan(db: Session = Depends(database.get_db)):
     # Returns all planned meals
     return db.query(models.MealPlan).all()
+
+@app.get("/shopping-list")
+def get_shopping_list(db: Session = Depends(database.get_db)):
+    """
+    Aggregates all ingredients for all meals currently in the MealPlan.
+    Groups by ingredient name and unit to sum up quantities.
+    """
+    # 1. Fetch current week's ingredients
+    # We join DishIngredient to MealPlan via dish_id
+    # Then join Ingredient to get the Name and Category
+    items = (
+        db.query(
+            models.Ingredient.name,
+            models.Ingredient.category,
+            func.sum(models.DishIngredient.quantity).label("total_quantity"),
+            models.DishIngredient.unit
+        )
+        .join(models.DishIngredient, models.Ingredient.id == models.DishIngredient.ingredient_id)
+        .join(models.MealPlan, models.DishIngredient.dish_id == models.MealPlan.dish_id)
+        .group_by(models.Ingredient.name, models.Ingredient.category, models.DishIngredient.unit)
+        .all()
+    )
+
+    # Convert to list of dictionaries for frontend
+    shopping_list = [
+        {
+            "name": item.name,
+            "category": item.category,
+            "quantity": round(item.total_quantity, 2),
+            "unit": item.unit
+        } for item in items
+    ]
+    
+    return shopping_list

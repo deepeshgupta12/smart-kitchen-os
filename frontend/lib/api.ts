@@ -34,4 +34,9 @@ export const addToPlan = async (dishId: number, date: string, slot: string) => {
   return response.data;
 };
 
+export const getShoppingList = async () => {
+  const response = await api.get('/shopping-list');
+  return response.data;
+};
+
 export default api;
