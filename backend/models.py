@@ -16,11 +16,11 @@ class Dish(Base):
     name = Column(String, index=True)
     thumbnail_url = Column(String, nullable=True)
     description = Column(Text)
+    thumbnail_url = Column(String, nullable=True) # Now used for DALL-E URL
     cuisine = Column(String)
     meal_type = Column(String) # Breakfast, Lunch, Dinner
     prep_steps = Column(JSON) 
     nutrition = Column(JSON) 
-
     ingredients = relationship("DishIngredient", back_populates="dish")
     paired_with = relationship(
         "Dish", 
@@ -34,6 +34,7 @@ class Ingredient(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
+    thumbnail_url = Column(String, nullable=True) # NEW: Image for the specific item
     category = Column(String) # Produce, Dairy, Pantry (Blinkit-style Aisle tagging)
 
 class DishIngredient(Base):
@@ -44,7 +45,6 @@ class DishIngredient(Base):
     ingredient_id = Column(Integer, ForeignKey("ingredients.id"))
     quantity = Column(Float)
     unit = Column(String)
-
     dish = relationship("Dish", back_populates="ingredients")
     ingredient = relationship("Ingredient")
 
@@ -56,7 +56,6 @@ class MealPlan(Base):
     dish_id = Column(Integer, ForeignKey("dishes.id"))
     planned_date = Column(Date) 
     meal_slot = Column(String) # Breakfast, Lunch, Dinner
-
     dish = relationship("Dish")
 
 # NEW: Shopping List table for automated aggregation
@@ -68,5 +67,4 @@ class ShoppingListItem(Base):
     total_quantity = Column(Float)
     unit = Column(String)
     is_purchased = Column(Boolean, default=False)
-
     ingredient = relationship("Ingredient")

@@ -6,6 +6,23 @@ from schemas import RecipeSchema
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+def generate_image(prompt: str):
+    """
+    Generates a professional food photography image using DALL-E 3.
+    """
+    try:
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=f"Professional high-end food photography of {prompt}, top-down view, soft lighting, 4k, appetizing.",
+            size="1024x1024",
+            quality="standard",
+            n=1,
+        )
+        return response.data[0].url
+    except Exception as e:
+        print(f"Image Generation Error: {e}")
+        return None
+
 def extract_recipe_logic(input_text: str) -> RecipeSchema:
     """
     Expert-level prompt to ensure descriptive, high-quality recipe content.

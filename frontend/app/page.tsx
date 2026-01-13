@@ -87,13 +87,13 @@ export default function Home() {
             recipes.map((recipe) => (
               <div key={recipe.id} className="group bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden hover:shadow-2xl transition-all duration-500">
                 <div className="h-52 bg-slate-100 relative overflow-hidden">
-                  <img 
-                    src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=60&w=800&sig=${recipe.id}`} 
-                    alt={recipe.name} 
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                  />
-                  <div className="absolute top-4 right-4 bg-white/90 px-3 py-1 rounded-lg text-[10px] font-black uppercase text-slate-800">
-                    {recipe.cuisine || 'Global'}
+                <img 
+                  src={recipe.thumbnail_url || `https://images.unsplash.com/photo-1546069901-ba9599a7e63c?sig=${recipe.id}`} 
+                  alt={recipe.name} 
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                />
+                <div className="absolute top-4 right-4 bg-white/90 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-800 shadow-sm">
+                    {recipe.cuisine}
                   </div>
                 </div>
 

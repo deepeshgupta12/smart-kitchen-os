@@ -50,10 +50,17 @@ def get_recipe(recipe_id: int, db: Session = Depends(database.get_db)):
 @app.post("/extract-recipe", response_model=schemas.RecipeResponse)
 def extract_recipe(text_input: str, db: Session = Depends(database.get_db)):
     try:
+        # 1. AI Text Extraction
         data = ai_service.extract_recipe_logic(text_input)
+        
+        # 2. Generate Dish Image
+        dish_image = ai_service.generate_image(f"{data.cuisine} {data.name}")
+        
+        # 3. Save Dish
         new_dish = models.Dish(
             name=data.name,
             description=data.description,
+            thumbnail_url=dish_image, # Real image stored here
             cuisine=data.cuisine,
             meal_type=", ".join(data.suitable_for) if data.suitable_for else "Meal",
             prep_steps=data.prep_steps,
@@ -62,15 +69,21 @@ def extract_recipe(text_input: str, db: Session = Depends(database.get_db)):
         db.add(new_dish)
         db.commit()
         db.refresh(new_dish)
+
+        # 4. Save Ingredients & Generate Item Images
         for ing in data.ingredients:
             db_ing = db.query(models.Ingredient).filter(models.Ingredient.name == ing.name).first()
             if not db_ing:
-                db_ing = models.Ingredient(name=ing.name, category=ing.category)
+                # Optional: Generate image for unique ingredients
+                ing_image = ai_service.generate_image(f"fresh {ing.name}")
+                db_ing = models.Ingredient(name=ing.name, category=ing.category, thumbnail_url=ing_image)
                 db.add(db_ing)
                 db.commit()
                 db.refresh(db_ing)
+            
             dish_ing = models.DishIngredient(dish_id=new_dish.id, ingredient_id=db_ing.id, quantity=ing.quantity, unit=ing.unit)
             db.add(dish_ing)
+        
         db.commit()
         db.refresh(new_dish)
         return new_dish

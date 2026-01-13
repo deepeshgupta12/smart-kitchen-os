@@ -58,13 +58,14 @@ export default function ShoppingList() {
                 {groupedItems[category].map((item: any, idx: number) => (
                   <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:border-indigo-200 transition-all">
                     <div className="flex items-center gap-4">
-                      <div className="w-6 h-6 rounded-full border-2 border-slate-200 flex items-center justify-center group-hover:border-green-500 transition-colors">
-                        <CheckCircle className="w-4 h-4 text-transparent group-hover:text-green-500" />
-                      </div>
-                      <span className="font-bold text-slate-800 text-lg">{item.name}</span>
+                    {/* Ingredient Image Thumbnail */}
+                    <div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-100">
+                      <img src={item.thumbnail_url || '/placeholder-ing.png'} alt={item.name} className="w-full h-full object-cover" />
                     </div>
-                    <div className="bg-slate-50 px-4 py-1.5 rounded-lg border border-slate-100 font-black text-slate-600">
-                      {item.quantity} {item.unit}
+                    <span className="font-bold text-slate-800 text-lg">{item.name}</span>
+                  </div>
+                  <div className="bg-slate-50 px-4 py-1.5 rounded-lg border border-slate-100 font-black text-slate-600">
+                    {item.quantity} {item.unit}
                     </div>
                   </div>
                 ))}
