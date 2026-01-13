@@ -188,3 +188,24 @@ def get_health_stats(date_str: str, db: Session = Depends(database.get_db)):
         },
         "remaining_calories": max(0, profile.daily_calorie_goal - actual_stats["calories"])
     }
+
+@app.get("/recommend-me")
+def recommend_meal(db: Session = Depends(database.get_db)):
+    # 1. Get Remaining Calories for today
+    today_str = date.today().isoformat()
+    health_data = get_health_stats(today_str, db)
+    remaining = health_data["remaining_calories"]
+
+    # 2. Get current ingredients in the shopping list
+    ingredients = db.query(models.Ingredient.name).join(
+        models.DishIngredient, models.Ingredient.id == models.DishIngredient.ingredient_id
+    ).join(
+        models.MealPlan, models.DishIngredient.dish_id == models.MealPlan.dish_id
+    ).distinct().all()
+    
+    ing_list = [i.name for i in ingredients]
+
+    # 3. Get AI Recommendation
+    recommendation = ai_service.get_smart_recommendation(remaining, ing_list)
+    
+    return {"recommendation": recommendation}

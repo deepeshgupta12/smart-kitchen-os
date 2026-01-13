@@ -49,3 +49,27 @@ def extract_recipe_logic(input_text: str) -> RecipeSchema:
     )
 
     return response.choices[0].message.parsed
+
+# NEW: The Smart Recommendation Logic
+def get_smart_recommendation(remaining_cal: int, existing_ingredients: list):
+    """
+    AI-driven gap-filling logic based on nutritional needs and inventory.
+    """
+    prompt = (
+        f"The user has {remaining_cal} calories remaining for today. "
+        f"Their current shopping list includes: {', '.join(existing_ingredients)}. "
+        "Recommend a single dish name that fits within the calorie limit and utilizes "
+        "some of these ingredients. Provide a 1-sentence culinary reason why."
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a health-focused culinary advisor."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return "Suggesting a light salad to keep you within your calorie goal."

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { getMealPlan, getAllRecipes, addToPlan, getHealthStats } from '@/lib/api';
+import api, { getMealPlan, getAllRecipes, addToPlan, getHealthStats } from '@/lib/api';
 import { 
   ChevronLeft, 
   Plus, 
@@ -9,11 +9,17 @@ import {
   Sunrise,
   Sun,
   Moon,
-  Loader2
+  Loader2,
+  Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
 import QuickAddModal from '@/components/QuickAddModal';
 import HealthTracker from '@/components/HealthTracker';
+
+export const getSmartRecommendation = async () => {
+   const response = await api.get('/recommend-me');
+   return response.data;
+ };
 
 export default function MealPlanner() {
   const [plans, setPlans] = useState<any[]>([]);
@@ -38,6 +44,21 @@ export default function MealPlanner() {
     { name: 'Lunch', icon: <Sun className="w-4 h-4 text-yellow-500" /> },
     { name: 'Dinner', icon: <Moon className="w-4 h-4 text-indigo-400" /> }
   ];
+
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+
+  const handleSmartSuggest = async () => {
+    setSuggesting(true);
+    try {
+      const data = await getSmartRecommendation();
+      setSuggestion(data.recommendation);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setSuggesting(false);
+  }
+};
 
   async function loadData() {
     try {
@@ -106,9 +127,37 @@ export default function MealPlanner() {
         </div>
       </nav>
 
-      <div className="max-w-[1600px] mx-auto p-8">
+      <div className="max-w-400 mx-auto p-8">
         {/* Integrated Health Tracker (Shows stats for Today) */}
         <HealthTracker stats={healthStats} />
+
+        {suggestion && (
+          <div className="bg-indigo-900 text-white p-6 rounded-4xl mb-8 animate-in slide-in-from-top-4 relative overflow-hidden">
+            <div className="relative z-10 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="bg-white/20 p-3 rounded-xl backdrop-blur-md">
+                  <Sparkles className="w-6 h-6 text-indigo-200" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300">AI Recommendation</p>
+                  <p className="text-lg font-medium italic">&quot;{suggestion}&quot;</p>
+                </div>
+              </div>
+              <button onClick={() => setSuggestion(null)} className="text-white/40 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        <button 
+          onClick={handleSmartSuggest}
+          disabled={suggesting}
+          className="w-full mb-8 bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-indigo-600 transition-all disabled:bg-slate-200"
+        >
+          {suggesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+          Ask AI for a Gap-Filler Meal
+        </button>
 
         <div className="overflow-x-auto">
           <div className="flex gap-6 min-w-max pb-4">
