@@ -51,15 +51,10 @@ def extract_recipe_logic(input_text: str) -> RecipeSchema:
     return response.choices[0].message.parsed
 
 # NEW: The Smart Recommendation Logic
-def get_smart_recommendation(remaining_cal: int, existing_ingredients: list):
-    """
-    AI-driven gap-filling logic based on nutritional needs and inventory.
-    """
+def get_smart_recommendation(remaining_cal: int, existing_ingredients: list, slot: str):
     prompt = (
-        f"The user has {remaining_cal} calories remaining for today. "
-        f"Their current shopping list includes: {', '.join(existing_ingredients)}. "
-        "Recommend a single dish name that fits within the calorie limit and utilizes "
-        "some of these ingredients. Provide a 1-sentence culinary reason why."
+        f"The user has {remaining_cal} calories remaining today and wants a {slot} recommendation. "
+        f"Inventory: {', '.join(existing_ingredients)}. Suggest a dish name and a 1-sentence reason."
     )
 
     try:

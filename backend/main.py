@@ -209,3 +209,12 @@ def recommend_meal(db: Session = Depends(database.get_db)):
     recommendation = ai_service.get_smart_recommendation(remaining, ing_list)
     
     return {"recommendation": recommendation}
+
+@app.delete("/meal-planner/{plan_id}")
+def remove_from_planner(plan_id: int, db: Session = Depends(database.get_db)):
+    plan_entry = db.query(models.MealPlan).filter(models.MealPlan.id == plan_id).first()
+    if not plan_entry:
+        raise HTTPException(status_code=404, detail="Plan entry not found")
+    db.delete(plan_entry)
+    db.commit()
+    return {"message": "Meal removed from planner"}

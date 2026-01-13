@@ -44,4 +44,8 @@ export const getHealthStats = async (dateStr: string) => {
   return response.data;
 };
 
+export const removeFromPlan = async (planId: number) => {
+  await api.delete(`/meal-planner/${planId}`);
+};
+
 export default api;
