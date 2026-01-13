@@ -6,40 +6,56 @@ import models
 import schemas
 import ai_service
 
-# Initialize Database
 models.Base.metadata.create_all(bind=database.engine)
 
-app = FastAPI(title="SmartKitchen OS - AI Extractor")
-
-# UPDATED: Explicit CORS Configuration
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+app = FastAPI(title="SmartKitchen OS - V2.3")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.get("/")
-def read_root():
-    return {"status": "Healthy", "db_connected": True}
+@app.get("/recipes")
+def get_all_recipes(db: Session = Depends(database.get_db)):
+    # Returns a list of all dishes for the dashboard
+    return db.query(models.Dish).all()
 
-@app.post("/extract-recipe", response_model=schemas.RecipeSchema)
+@app.get("/recipes/{recipe_id}")
+def get_recipe(recipe_id: int, db: Session = Depends(database.get_db)):
+    # Joins the ingredients for the detail view
+    recipe = db.query(models.Dish).filter(models.Dish.id == recipe_id).first()
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    
+    # Manually building the response to include ingredients
+    return {
+        "id": recipe.id,
+        "name": recipe.name,
+        "description": recipe.description,
+        "cuisine": recipe.cuisine,
+        "meal_type": recipe.meal_type,
+        "prep_steps": recipe.prep_steps,
+        "nutrition": recipe.nutrition,
+        "ingredients": [
+            {
+                "name": ing.ingredient.name,
+                "quantity": ing.quantity,
+                "unit": ing.unit,
+                "category": ing.ingredient.category
+            } for ing in recipe.ingredients
+        ]
+    }
+
+@app.post("/extract-recipe")
 def extract_recipe(text_input: str, db: Session = Depends(database.get_db)):
     try:
-        # 1. AI Extraction
         data = ai_service.extract_recipe_logic(text_input)
-        
-        # 2. Save Dish
         new_dish = models.Dish(
             name=data.name,
             description=data.description,
-            thumbnail_url=data.thumbnail_url,
             cuisine=data.cuisine,
             meal_type=", ".join(data.suitable_for),
             prep_steps=data.prep_steps,
@@ -49,7 +65,6 @@ def extract_recipe(text_input: str, db: Session = Depends(database.get_db)):
         db.commit()
         db.refresh(new_dish)
 
-        # 3. Save Ingredients
         for ing in data.ingredients:
             db_ing = db.query(models.Ingredient).filter(models.Ingredient.name == ing.name).first()
             if not db_ing:
@@ -67,9 +82,7 @@ def extract_recipe(text_input: str, db: Session = Depends(database.get_db)):
             db.add(dish_ing)
         
         db.commit()
-        return data
-
+        return new_dish
     except Exception as e:
         db.rollback()
-        print(f"BACKEND ERROR: {str(e)}") # Critical for debugging
         raise HTTPException(status_code=500, detail=str(e))
