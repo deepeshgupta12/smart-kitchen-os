@@ -190,7 +190,10 @@ def get_health_stats(date_str: str, db: Session = Depends(database.get_db)):
     }
 
 @app.get("/recommend-me")
-def recommend_meal(db: Session = Depends(database.get_db)):
+def recommend_meal(
+    slot: str = Query("Dinner"), # Accept slot from frontend
+    db: Session = Depends(database.get_db)
+):
     # 1. Get Remaining Calories for today
     today_str = date.today().isoformat()
     health_data = get_health_stats(today_str, db)
@@ -205,8 +208,8 @@ def recommend_meal(db: Session = Depends(database.get_db)):
     
     ing_list = [i.name for i in ingredients]
 
-    # 3. Get AI Recommendation
-    recommendation = ai_service.get_smart_recommendation(remaining, ing_list)
+    # 3. Get AI Recommendation (Passing all 3 required arguments)
+    recommendation = ai_service.get_smart_recommendation(remaining, ing_list, slot)
     
     return {"recommendation": recommendation}
 

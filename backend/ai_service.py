@@ -52,9 +52,14 @@ def extract_recipe_logic(input_text: str) -> RecipeSchema:
 
 # NEW: The Smart Recommendation Logic
 def get_smart_recommendation(remaining_cal: int, existing_ingredients: list, slot: str):
+    """
+    AI-driven gap-filling logic based on nutritional needs, inventory, and specific meal slot.
+    """
     prompt = (
         f"The user has {remaining_cal} calories remaining today and wants a {slot} recommendation. "
-        f"Inventory: {', '.join(existing_ingredients)}. Suggest a dish name and a 1-sentence reason."
+        f"Their current shopping list includes: {', '.join(existing_ingredients)}. "
+        f"Recommend a single dish name suitable for {slot} that fits within the calorie limit. "
+        "Format the response exactly as 'Dish Name: 1-sentence culinary reason why'."
     )
 
     try:
@@ -67,4 +72,5 @@ def get_smart_recommendation(remaining_cal: int, existing_ingredients: list, slo
         )
         return response.choices[0].message.content
     except Exception as e:
-        return "Suggesting a light salad to keep you within your calorie goal."
+        print(f"AI Recommendation Error: {e}")
+        return f"Light {slot} Salad: To keep you refreshed and within your calorie goals."
