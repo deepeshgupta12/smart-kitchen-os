@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, ChefHat, ShoppingBasket, Calendar, Plus, Sparkles, ArrowRight } from 'lucide-react';
+import { Search, ChefHat, ShoppingBasket, Calendar, Plus, Sparkles, ArrowRight, ThermometerSnowflake } from 'lucide-react';
 import RecipeModal from '@/components/RecipeModal';
 import { getAllRecipes } from '@/lib/api';
 
@@ -31,7 +31,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] text-slate-900">
-      <nav className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-[50]">
+      <nav className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-2">
           <div className="bg-green-600 p-1.5 rounded-lg">
             <ChefHat className="text-white w-6 h-6" />
@@ -52,6 +52,10 @@ export default function Home() {
 
         <div className="flex items-center gap-6 text-slate-600">
           {/* UPDATED: Added Link for redirection to /planner */}
+          <Link href="/pantry" className="flex flex-col items-center hover:text-green-600 transition-colors">
+            <ThermometerSnowflake className="w-6 h-6" />
+              <span className="text-[10px] uppercase font-bold mt-1">Pantry</span>
+          </Link>
           <Link href="/planner" className="flex flex-col items-center hover:text-green-600 transition-colors">
             <Calendar className="w-6 h-6" />
             <span className="text-[10px] uppercase font-bold mt-1">Planner</span>
