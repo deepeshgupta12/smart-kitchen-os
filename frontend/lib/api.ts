@@ -39,4 +39,9 @@ export const getShoppingList = async () => {
   return response.data;
 };
 
+export const getHealthStats = async (dateStr: string) => {
+  const response = await api.get(`/health-stats/${dateStr}`);
+  return response.data;
+};
+
 export default api;
