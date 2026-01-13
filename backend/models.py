@@ -1,3 +1,4 @@
+from datetime import date
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, Float, Table, JSON, Date, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
@@ -78,3 +79,16 @@ class UserProfile(Base):
     daily_protein_goal = Column(String, default="150g")
     daily_carbs_goal = Column(String, default="250g")
     daily_fats_goal = Column(String, default="70g")
+
+# --- NEW: PANTRY INVENTORY TABLE (V5.1) ---
+class PantryItem(Base):
+    __tablename__ = "pantry_inventory"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ingredient_id = Column(Integer, ForeignKey("ingredients.id"))
+    current_quantity = Column(Float)
+    unit = Column(String)
+    expiry_date = Column(Date, nullable=True)
+    last_updated = Column(Date, default=date.today)
+
+    ingredient = relationship("Ingredient")

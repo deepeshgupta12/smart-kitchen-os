@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import date, timedelta
 import database
 import models
@@ -10,7 +11,7 @@ import ai_service
 # Initialize Database tables
 models.Base.metadata.create_all(bind=database.engine)
 
-app = FastAPI(title="SmartKitchen OS - V4.4 Enhanced")
+app = FastAPI(title="SmartKitchen OS - V5.1 Pantry Intelligence")
 
 # Explicit CORS Configuration for Mac M1 environment
 app.add_middleware(
@@ -56,13 +57,9 @@ def get_recipe(recipe_id: int, db: Session = Depends(database.get_db)):
 @app.post("/extract-recipe", response_model=schemas.RecipeResponse)
 def extract_recipe(text_input: str, db: Session = Depends(database.get_db)):
     try:
-        # 1. AI Text Extraction
         data = ai_service.extract_recipe_logic(text_input)
-        
-        # 2. Generate Professional Dish Image (DALL-E 3)
         dish_image = ai_service.generate_professional_image(f"{data.cuisine} {data.name}")
         
-        # 3. Save Dish
         new_dish = models.Dish(
             name=data.name,
             description=data.description,
@@ -76,7 +73,6 @@ def extract_recipe(text_input: str, db: Session = Depends(database.get_db)):
         db.commit()
         db.refresh(new_dish)
 
-        # 4. Save Ingredients & Generate Item Images
         for ing in data.ingredients:
             db_ing = db.query(models.Ingredient).filter(models.Ingredient.name == ing.name).first()
             if not db_ing:
@@ -133,7 +129,6 @@ def remove_from_planner(plan_id: int, db: Session = Depends(database.get_db)):
 @app.get("/health-stats/{date_str}")
 def get_health_stats(date_str: str, db: Session = Depends(database.get_db)):
     planned_meals = db.query(models.MealPlan).filter(models.MealPlan.planned_date == date_str).all()
-    
     actual_stats = {"calories": 0, "protein": 0, "carbs": 0, "fats": 0}
     
     for plan in planned_meals:
@@ -167,12 +162,10 @@ def recommend_meal(
     slot: str = Query("Dinner"), 
     db: Session = Depends(database.get_db)
 ):
-    # 1. Context: Today's Health Gap
     today_str = date.today().isoformat()
     health_data = get_health_stats(today_str, db)
     remaining = health_data["remaining_calories"]
 
-    # 2. Context: Current Inventory (Distinct ingredients from all planned meals)
     ingredients = db.query(models.Ingredient.name).join(
         models.DishIngredient, models.Ingredient.id == models.DishIngredient.ingredient_id
     ).join(
@@ -180,23 +173,64 @@ def recommend_meal(
     ).distinct().all()
     
     ing_list = [i.name for i in ingredients]
-
-    # 3. AI Recommendation
     recommendation = ai_service.get_smart_recommendation(remaining, ing_list, slot)
     
     return {"recommendation": recommendation}
 
-# --- SHOPPING AGGREGATION ---
+# --- NEW: PANTRY & SMART SHOPPING AGGREGATION (V5.1) ---
+
+@app.get("/pantry")
+def get_pantry_inventory(db: Session = Depends(database.get_db)):
+    """Fetches items currently in the user's pantry."""
+    items = db.query(models.PantryItem).all()
+    return [
+        {
+            "id": item.id,
+            "name": item.ingredient.name,
+            "category": item.ingredient.category,
+            "quantity": item.current_quantity,
+            "unit": item.unit,
+            "thumbnail_url": item.ingredient.thumbnail_url
+        } for item in items
+    ]
+
+@app.post("/pantry/purchase")
+def update_pantry_after_purchase(item_name: str, quantity: float, unit: str, db: Session = Depends(database.get_db)):
+    """Simulates purchasing an item: adds or updates stock in the pantry."""
+    ing = db.query(models.Ingredient).filter(models.Ingredient.name == item_name).first()
+    if not ing:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+    
+    pantry_item = db.query(models.PantryItem).filter(models.PantryItem.ingredient_id == ing.id).first()
+    
+    if pantry_item:
+        pantry_item.current_quantity += quantity
+        pantry_item.last_updated = date.today()
+    else:
+        pantry_item = models.PantryItem(
+            ingredient_id=ing.id, 
+            current_quantity=quantity, 
+            unit=unit
+        )
+        db.add(pantry_item)
+    
+    db.commit()
+    return {"message": f"Updated pantry: {item_name}"}
 
 @app.get("/shopping-list")
-def get_shopping_list(db: Session = Depends(database.get_db)):
+def get_smart_shopping_list(db: Session = Depends(database.get_db)):
+    """
+    V5.1 ENHANCEMENT: Calculates weekly requirements but subtracts existing pantry stock.
+    """
     from sqlalchemy import func
-    items = (
+    
+    # 1. Calculate Gross Requirements from planned meals
+    required = (
         db.query(
             models.Ingredient.name,
             models.Ingredient.category,
             models.Ingredient.thumbnail_url,
-            func.sum(models.DishIngredient.quantity).label("total_quantity"),
+            func.sum(models.DishIngredient.quantity).label("gross_qty"),
             models.DishIngredient.unit
         )
         .join(models.DishIngredient, models.Ingredient.id == models.DishIngredient.ingredient_id)
@@ -205,12 +239,23 @@ def get_shopping_list(db: Session = Depends(database.get_db)):
         .all()
     )
 
-    return [
-        {
-            "name": item.name,
-            "category": item.category,
-            "thumbnail_url": item.thumbnail_url,
-            "quantity": round(item.total_quantity, 2),
-            "unit": item.unit
-        } for item in items
-    ]
+    # 2. Get Pantry stock levels
+    pantry_stock = db.query(models.PantryItem).all()
+    stock_map = {item.ingredient.name: item.current_quantity for item in pantry_stock}
+
+    # 3. Gap Analysis: (What we need - What we have)
+    smart_list = []
+    for item in required:
+        on_hand = stock_map.get(item.name, 0)
+        net_needed = max(0, item.gross_qty - on_hand)
+        
+        if net_needed > 0:
+            smart_list.append({
+                "name": item.name,
+                "category": item.category,
+                "thumbnail_url": item.thumbnail_url,
+                "quantity": round(net_needed, 2),
+                "unit": item.unit
+            })
+
+    return smart_list
