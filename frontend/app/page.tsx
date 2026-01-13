@@ -10,7 +10,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] text-slate-900">
-      {/* Navigation Header */}
       <nav className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-[50]">
         <div className="flex items-center gap-2">
           <div className="bg-green-600 p-1.5 rounded-lg">
@@ -24,8 +23,8 @@ export default function Home() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
             <input 
               type="text" 
-              placeholder="Search for recipes or ingredients..." 
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-green-500 transition-all outline-none"
+              placeholder="Search for recipes..." 
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50 outline-none"
             />
           </div>
         </div>
@@ -42,7 +41,6 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Main Content Area */}
       <section className="max-w-7xl mx-auto p-8">
         <div className="flex items-center justify-between mb-10">
           <div>
@@ -51,46 +49,31 @@ export default function Home() {
           </div>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-green-700 transition-all shadow-lg shadow-green-200 active:scale-95"
+            className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-green-700 transition-all shadow-lg active:scale-95"
           >
             <Plus className="w-5 h-5" />
             New Recipe
           </button>
         </div>
 
-        {/* Recipe Display Area */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {latestRecipe ? (
-            <div className="group bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl hover:border-green-200 transition-all duration-300">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl transition-all duration-300">
               <div className="h-48 bg-slate-100 flex items-center justify-center relative">
-                {latestRecipe.thumbnail_url ? (
-                  <img src={latestRecipe.thumbnail_url} alt={latestRecipe.name} className="w-full h-full object-cover" />
-                ) : (
-                  <ChefHat className="w-12 h-12 text-slate-300" />
-                )}
-                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-slate-700">
-                  {latestRecipe.cuisine}
+                <ChefHat className="w-12 h-12 text-slate-300" />
+                <div className="absolute top-4 right-4 bg-white/90 px-3 py-1 rounded-full text-[10px] font-bold uppercase text-slate-700">
+                  {latestRecipe?.cuisine}
                 </div>
               </div>
               <div className="p-6">
-                <div className="flex items-center gap-2 mb-3">
-                  {latestRecipe.suitable_for?.map((tag: string) => (
-                    <span key={tag} className="text-[10px] font-bold px-2 py-0.5 bg-green-50 text-green-700 rounded-md uppercase">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-green-600 transition-colors">
-                  {latestRecipe.name}
-                </h3>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">{latestRecipe?.name}</h3>
                 <p className="text-slate-500 text-sm line-clamp-2 mb-6 leading-relaxed">
-                  {latestRecipe.description}
+                  {latestRecipe?.description}
                 </p>
-                
                 <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                   <div className="flex flex-col">
                     <span className="text-[10px] text-slate-400 uppercase font-bold">Calories</span>
-                    <span className="font-bold text-slate-700">{latestRecipe.nutrition.calories} kcal</span>
+                    <span className="font-bold text-slate-700">{latestRecipe?.nutrition?.calories || 0} kcal</span>
                   </div>
                   <button className="text-green-600 font-bold text-sm hover:underline">
                     View Details →
@@ -100,17 +83,13 @@ export default function Home() {
             </div>
           ) : (
             <div className="col-span-full border-2 border-dashed border-slate-200 rounded-3xl h-80 flex flex-col items-center justify-center text-slate-400 bg-white/50">
-               <div className="bg-slate-100 p-4 rounded-full mb-4">
-                 <Plus className="w-8 h-8" />
-               </div>
+               <Plus className="w-8 h-8 mb-4" />
                <p className="font-bold text-slate-600">No recipes in your collection</p>
-               <p className="text-sm">Click + New Recipe to import using AI</p>
             </div>
           )}
         </div>
       </section>
 
-      {/* Import Modal Component */}
       <RecipeModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
