@@ -4,23 +4,25 @@ import React, { useEffect, useState } from 'react';
 import { getMealPlan, getAllRecipes, addToPlan } from '@/lib/api';
 import { 
   ChevronLeft, 
-  ChevronRight, 
   Plus, 
-  ChefHat, 
   Calendar as CalendarIcon,
-  UtensilsCrossed,
   Sunrise,
   Sun,
-  Moon
+  Moon,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
+import QuickAddModal from '@/components/QuickAddModal';
 
 export default function MealPlanner() {
   const [plans, setPlans] = useState<any[]>([]);
   const [recipes, setRecipes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeSlot, setActiveSlot] = useState<{ date: Date, name: string } | null>(null);
 
-  // Generate the next 7 days starting from today
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
@@ -33,32 +35,54 @@ export default function MealPlanner() {
     { name: 'Dinner', icon: <Moon className="w-4 h-4 text-indigo-400" /> }
   ];
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [planData, recipeData] = await Promise.all([getMealPlan(), getAllRecipes()]);
-        setPlans(planData);
-        setRecipes(recipeData);
-      } catch (err) {
-        console.error("Error loading planner data:", err);
-      } finally {
-        setLoading(false);
-      }
+  async function loadData() {
+    setLoading(true);
+    try {
+      const [planData, recipeData] = await Promise.all([getMealPlan(), getAllRecipes()]);
+      setPlans(planData);
+      setRecipes(recipeData);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     loadData();
   }, []);
 
-  // Helper to find if a dish is planned for a specific day and slot
+  const handleOpenModal = (date: Date, slotName: string) => {
+    setActiveSlot({ date, name: slotName });
+    setIsModalOpen(true);
+  };
+
+  const handleAddRecipeToPlan = async (recipeId: number) => {
+    if (!activeSlot) return;
+    
+    try {
+      const dateStr = activeSlot.date.toISOString().split('T')[0];
+      await addToPlan(recipeId, dateStr, activeSlot.name);
+      await loadData(); // Refresh planner
+      setIsModalOpen(false);
+    } catch (err) {
+      alert("Failed to add to plan. Check console.");
+    }
+  };
+
   const getPlannedDish = (date: Date, slot: string) => {
     const dateStr = date.toISOString().split('T')[0];
     return plans.find(p => p.planned_date === dateStr && p.meal_slot === slot);
   };
 
-  if (loading) return <div className="p-20 text-center font-bold">Initializing Planner...</div>;
+  if (loading && recipes.length === 0) return (
+    <div className="h-screen flex items-center justify-center bg-[#F8FAFC]">
+      <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+    </div>
+  );
 
   return (
     <main className="min-h-screen bg-[#F8FAFC]">
-      {/* Header */}
       <nav className="bg-white border-b px-8 py-6 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-4">
           <Link href="/" className="bg-slate-100 p-2 rounded-xl hover:bg-slate-200 transition-all">
@@ -69,20 +93,16 @@ export default function MealPlanner() {
             <p className="text-slate-500 text-sm font-medium">Schedule your culinary week</p>
           </div>
         </div>
-        <div className="flex gap-3">
-            <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl font-bold text-sm border border-green-100 flex items-center gap-2">
-                <CalendarIcon className="w-4 h-4" />
-                Jan 13 - Jan 20
-            </div>
+        <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl font-bold text-sm border border-green-100 flex items-center gap-2">
+          <CalendarIcon className="w-4 h-4" />
+          Week View
         </div>
       </nav>
 
-      {/* 7-Day Grid */}
       <div className="max-w-[1600px] mx-auto p-8 overflow-x-auto">
         <div className="flex gap-6 min-w-max pb-4">
           {weekDays.map((date, idx) => (
             <div key={idx} className="w-80 flex-shrink-0">
-              {/* Day Header */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm mb-4">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
                   {date.toLocaleDateString('en-US', { weekday: 'long' })}
@@ -92,7 +112,6 @@ export default function MealPlanner() {
                 </h3>
               </div>
 
-              {/* Slots for the day */}
               <div className="space-y-4">
                 {slots.map((slot) => {
                   const planned = getPlannedDish(date, slot.name);
@@ -100,7 +119,7 @@ export default function MealPlanner() {
                     <div 
                       key={slot.name}
                       className={`min-h-[140px] rounded-[2rem] p-6 border-2 border-dashed transition-all relative group
-                        ${planned ? 'bg-white border-slate-200 border-solid shadow-sm' : 'bg-slate-50 border-slate-200 hover:border-green-300 hover:bg-green-50/30'}`}
+                        ${planned ? 'bg-white border-slate-200 border-solid shadow-sm hover:shadow-md' : 'bg-slate-50 border-slate-200 hover:border-green-300 hover:bg-white'}`}
                     >
                       <div className="flex items-center gap-2 mb-4 opacity-60">
                         {slot.icon}
@@ -110,19 +129,14 @@ export default function MealPlanner() {
                       {planned ? (
                         <div className="animate-in fade-in slide-in-from-bottom-2">
                           <h4 className="font-bold text-slate-900 leading-tight mb-2">{planned.dish.name}</h4>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-md font-bold uppercase text-slate-500">
-                              {planned.dish.cuisine}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-bold">
-                              {planned.dish.nutrition?.calories} kcal
-                            </span>
-                          </div>
+                          <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-md font-bold uppercase text-slate-500">
+                            {planned.dish.cuisine}
+                          </span>
                         </div>
                       ) : (
                         <button 
                           className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-300 group-hover:text-green-500 transition-colors"
-                          onClick={() => {/* We will add the Quick-Add Modal in the next step */}}
+                          onClick={() => handleOpenModal(date, slot.name)}
                         >
                           <Plus className="w-6 h-6" />
                           <span className="text-[10px] font-black uppercase">Schedule</span>
@@ -136,6 +150,15 @@ export default function MealPlanner() {
           ))}
         </div>
       </div>
+
+      <QuickAddModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        recipes={recipes}
+        onSelect={handleAddRecipeToPlan}
+        slotName={activeSlot?.name || ''}
+        displayDate={activeSlot?.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) || ''}
+      />
     </main>
   );
 }

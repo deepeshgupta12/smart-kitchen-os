@@ -26,7 +26,6 @@ export default function Home() {
   }, []);
 
   const handleExtractionSuccess = (newRecipe: any) => {
-    // newRecipe now contains the Database ID from the updated backend
     setRecipes((prev) => [newRecipe, ...prev]);
   };
 
@@ -52,10 +51,11 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-6 text-slate-600">
-          <button className="flex flex-col items-center hover:text-green-600 transition-colors">
+          {/* UPDATED: Added Link for redirection to /planner */}
+          <Link href="/planner" className="flex flex-col items-center hover:text-green-600 transition-colors">
             <Calendar className="w-6 h-6" />
             <span className="text-[10px] uppercase font-bold mt-1">Planner</span>
-          </button>
+          </Link>
           <button className="flex flex-col items-center hover:text-green-600 transition-colors">
             <ShoppingBasket className="w-6 h-6" />
             <span className="text-[10px] uppercase font-bold mt-1">Cart</span>
@@ -80,14 +80,12 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {loading ? (
-            // FIX: Added 'key' to prevent React Console Error
             <div key="loader" className="col-span-full py-20 text-center">
               <div className="w-10 h-10 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-slate-500 font-bold">Synchronizing Kitchen Data...</p>
             </div>
           ) : recipes.length > 0 ? (
             recipes.map((recipe) => (
-              <div key={recipe.id} className="group bg-white rounded-4xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-2xl transition-all duration-500">
+              <div key={recipe.id} className="group bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden hover:shadow-2xl transition-all duration-500">
                 <div className="h-52 bg-slate-100 relative overflow-hidden">
                   <img 
                     src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=60&w=800&sig=${recipe.id}`} 
@@ -101,7 +99,6 @@ export default function Home() {
 
                 <div className="p-7">
                   <div className="flex items-center gap-2 mb-4">
-                    {/* FIX: Defensive check for split property */}
                     <span className="text-[10px] font-black px-2.5 py-1 bg-green-50 text-green-700 rounded-lg uppercase tracking-tight">
                       {recipe.meal_type && recipe.meal_type !== "Meal" ? recipe.meal_type.split(',')[0] : 'Dish'}
                     </span>
@@ -126,7 +123,6 @@ export default function Home() {
                       </span>
                     </div>
                     
-                    {/* Navigation fix: Uses the Database ID returned from backend */}
                     <Link href={`/recipe/${recipe.id}`}>
                       <button className="bg-slate-900 text-white p-3 rounded-xl hover:bg-green-600 transition-all shadow-lg">
                         <ArrowRight className="w-5 h-5" />
