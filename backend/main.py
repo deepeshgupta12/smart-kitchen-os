@@ -177,85 +177,70 @@ def recommend_meal(
     
     return {"recommendation": recommendation}
 
-# --- NEW: PANTRY & SMART SHOPPING AGGREGATION (V5.1) ---
+# --- NEW: DYNAMIC PANTRY & SMART SHOPPING (V5.3) ---
 
 @app.get("/pantry")
-def get_pantry_inventory(db: Session = Depends(database.get_db)):
-    """Fetches items currently in the user's pantry."""
+def get_pantry(db: Session = Depends(database.get_db)):
     items = db.query(models.PantryItem).all()
-    return [
-        {
-            "id": item.id,
-            "name": item.ingredient.name,
-            "category": item.ingredient.category,
-            "quantity": item.current_quantity,
-            "unit": item.unit,
-            "thumbnail_url": item.ingredient.thumbnail_url
-        } for item in items
-    ]
+    return [{
+        "id": item.id, "name": item.ingredient.name, "category": item.ingredient.category,
+        "quantity": item.current_quantity, "unit": item.unit, "thumbnail_url": item.ingredient.thumbnail_url
+    } for item in items]
 
 @app.post("/pantry/purchase")
-def update_pantry_after_purchase(item_name: str, quantity: float, unit: str, db: Session = Depends(database.get_db)):
-    """Simulates purchasing an item: adds or updates stock in the pantry."""
-    ing = db.query(models.Ingredient).filter(models.Ingredient.name == item_name).first()
-    if not ing:
-        raise HTTPException(status_code=404, detail="Ingredient not found")
+def update_pantry(item_name: str, quantity: float, unit: str, db: Session = Depends(database.get_db)):
+    # Partial matching to handle "Tomatoes" vs "Tomato"
+    ing = db.query(models.Ingredient).filter(models.Ingredient.name.ilike(f"%{item_name}%")).first()
+    if not ing: raise HTTPException(status_code=404, detail="Ingredient not found")
     
     pantry_item = db.query(models.PantryItem).filter(models.PantryItem.ingredient_id == ing.id).first()
-    
     if pantry_item:
         pantry_item.current_quantity += quantity
-        pantry_item.last_updated = date.today()
     else:
-        pantry_item = models.PantryItem(
-            ingredient_id=ing.id, 
-            current_quantity=quantity, 
-            unit=unit
-        )
+        pantry_item = models.PantryItem(ingredient_id=ing.id, current_quantity=quantity, unit=unit)
         db.add(pantry_item)
-    
     db.commit()
-    return {"message": f"Updated pantry: {item_name}"}
+    return {"status": "Pantry Updated"}
 
 @app.get("/shopping-list")
-def get_smart_shopping_list(db: Session = Depends(database.get_db)):
+def get_shopping_list(db: Session = Depends(database.get_db)):
     """
-    V5.1 ENHANCEMENT: Calculates weekly requirements but subtracts existing pantry stock.
+    V5.3 ENHANCEMENT: AI-Driven Unit Normalization for Gap Analysis.
     """
-    from sqlalchemy import func
-    
-    # 1. Calculate Gross Requirements from planned meals
     required = (
         db.query(
-            models.Ingredient.name,
-            models.Ingredient.category,
-            models.Ingredient.thumbnail_url,
-            func.sum(models.DishIngredient.quantity).label("gross_qty"),
-            models.DishIngredient.unit
+            models.Ingredient.name, models.Ingredient.category, models.Ingredient.thumbnail_url,
+            func.sum(models.DishIngredient.quantity).label("gross_qty"), models.DishIngredient.unit
         )
-        .join(models.DishIngredient, models.Ingredient.id == models.DishIngredient.ingredient_id)
-        .join(models.MealPlan, models.DishIngredient.dish_id == models.MealPlan.dish_id)
-        .group_by(models.Ingredient.name, models.Ingredient.category, models.Ingredient.thumbnail_url, models.DishIngredient.unit)
-        .all()
+        .join(models.DishIngredient).join(models.MealPlan).group_by(
+            models.Ingredient.name, models.Ingredient.category, models.Ingredient.thumbnail_url, models.DishIngredient.unit
+        ).all()
     )
 
-    # 2. Get Pantry stock levels
     pantry_stock = db.query(models.PantryItem).all()
-    stock_map = {item.ingredient.name: item.current_quantity for item in pantry_stock}
+    stock_map = {item.ingredient.name: (item.current_quantity, item.unit) for item in pantry_stock}
 
-    # 3. Gap Analysis: (What we need - What we have)
-    smart_list = []
+    final_list = []
     for item in required:
-        on_hand = stock_map.get(item.name, 0)
-        net_needed = max(0, item.gross_qty - on_hand)
+        stock_data = stock_map.get(item.name)
+        net_needed = item.gross_qty
+
+        if stock_data:
+            on_hand_qty, on_hand_unit = stock_data
+            
+            # Use AI for conversion if units mismatch
+            if on_hand_unit.lower() != item.unit.lower():
+                # Convert what we HAVE in pantry to the unit the RECIPE needs
+                converted_stock = ai_service.get_unit_conversion(
+                    item.name, on_hand_qty, on_hand_unit, item.unit
+                )
+                net_needed = max(0, item.gross_qty - converted_stock)
+            else:
+                net_needed = max(0, item.gross_qty - on_hand_qty)
         
         if net_needed > 0:
-            smart_list.append({
-                "name": item.name,
-                "category": item.category,
-                "thumbnail_url": item.thumbnail_url,
-                "quantity": round(net_needed, 2),
-                "unit": item.unit
+            final_list.append({
+                "name": item.name, "category": item.category, "thumbnail_url": item.thumbnail_url,
+                "quantity": round(net_needed, 2), "unit": item.unit
             })
-
-    return smart_list
+    return final_list

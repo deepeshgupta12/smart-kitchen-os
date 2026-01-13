@@ -74,3 +74,24 @@ def get_smart_recommendation(remaining_cal: int, existing_ingredients: list, slo
     except Exception as e:
         print(f"AI Recommendation Error: {e}")
         return f"Light {slot} Salad: To keep you refreshed and within your calorie goals."
+    
+def get_unit_conversion(ingredient_name: str, quantity: float, from_unit: str, to_unit: str) -> float:
+    """
+    Uses AI to dynamically convert non-standard units (pcs, bunches) to standard ones (grams/ml).
+    Example: "3 pieces of tomatoes" -> "300 grams"
+    """
+    prompt = (
+        f"In the context of cooking, convert {quantity} {from_unit} of {ingredient_name} to {to_unit}. "
+        f"Return ONLY the numerical value as a float. If you cannot convert, return the original quantity."
+    )
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        # Extract only the number from the response
+        result = response.choices[0].message.content.strip()
+        return float(''.join(c for c in result if c.isdigit() or c == '.'))
+    except Exception:
+        return quantity # Fallback to original if AI fails
