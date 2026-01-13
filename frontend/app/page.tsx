@@ -1,4 +1,7 @@
-import React from 'react';
+'use client';
+
+
+import React, { useState } from 'react';
 import { Search, ChefHat, ShoppingBasket, Calendar } from 'lucide-react';
 
 export default function Home() {
