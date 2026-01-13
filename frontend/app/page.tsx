@@ -11,7 +11,6 @@ export default function Home() {
   const [recipes, setRecipes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load existing recipes from the database on mount
   useEffect(() => {
     async function loadRecipes() {
       try {
@@ -26,14 +25,12 @@ export default function Home() {
     loadRecipes();
   }, []);
 
-  // Handle successful extraction by adding new recipe to the top of the list
   const handleExtractionSuccess = (newRecipe: any) => {
     setRecipes((prev) => [newRecipe, ...prev]);
   };
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] text-slate-900">
-      {/* Navigation Header */}
       <nav className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-[50]">
         <div className="flex items-center gap-2">
           <div className="bg-green-600 p-1.5 rounded-lg">
@@ -47,8 +44,8 @@ export default function Home() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
             <input 
               type="text" 
-              placeholder="Search for recipes or ingredients..." 
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-green-500 transition-all outline-none"
+              placeholder="Search for recipes..." 
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50 outline-none"
             />
           </div>
         </div>
@@ -65,7 +62,6 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Main Content Area */}
       <section className="max-w-7xl mx-auto p-8">
         <div className="flex items-center justify-between mb-10">
           <div>
@@ -74,42 +70,37 @@ export default function Home() {
           </div>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-green-700 transition-all shadow-lg shadow-green-200 active:scale-95"
+            className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-green-700 transition-all shadow-lg active:scale-95"
           >
             <Plus className="w-5 h-5" />
             New Recipe
           </button>
         </div>
 
-        {/* Recipe Display Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {loading ? (
             <div className="col-span-full py-20 text-center">
-              <div className="w-10 h-10 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-slate-500 font-bold">Synchronizing Kitchen Data...</p>
+              <div className="w-10 h-10 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto" />
             </div>
           ) : recipes.length > 0 ? (
             recipes.map((recipe) => (
-              <div 
-                key={recipe.id} 
-                className="group bg-white rounded-4xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-2xl hover:border-green-200 transition-all duration-500"
-              >
-                {/* Dynamic Image Fallback */}
+              <div key={recipe.id} className="group bg-white rounded-4xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-2xl transition-all duration-500">
                 <div className="h-52 bg-slate-100 relative overflow-hidden">
                   <img 
-                    src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=60&w=800&q=80&sig=${recipe.id}`} 
+                    src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=60&w=800&sig=${recipe.id}`} 
                     alt={recipe.name} 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                   />
-                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-800 shadow-sm">
-                    {recipe.cuisine}
+                  <div className="absolute top-4 right-4 bg-white/90 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-800">
+                    {recipe.cuisine || 'Global'}
                   </div>
                 </div>
 
                 <div className="p-7">
                   <div className="flex items-center gap-2 mb-4">
+                    {/* FIXED LINE: Defensive check for meal_type before splitting */}
                     <span className="text-[10px] font-black px-2.5 py-1 bg-green-50 text-green-700 rounded-lg uppercase tracking-tight">
-                      {recipe.meal_type.split(',')[0]}
+                      {recipe.meal_type ? recipe.meal_type.split(',')[0] : 'Meal'}
                     </span>
                     <div className="flex items-center gap-1 text-slate-400">
                       <Sparkles className="w-3 h-3" />
@@ -120,7 +111,6 @@ export default function Home() {
                   <h3 className="text-xl font-black text-slate-900 mb-2 group-hover:text-green-600 transition-colors">
                     {recipe.name}
                   </h3>
-                  
                   <p className="text-slate-500 text-sm line-clamp-2 mb-8 leading-relaxed font-medium">
                     {recipe.description}
                   </p>
@@ -143,18 +133,13 @@ export default function Home() {
               </div>
             ))
           ) : (
-            <div className="col-span-full border-2 border-dashed border-slate-200 rounded-[3rem] h-96 flex flex-col items-center justify-center text-slate-400 bg-white/50 backdrop-blur-sm">
-               <div className="bg-slate-100 p-6 rounded-full mb-6">
-                 <ChefHat className="w-12 h-12 text-slate-300" />
-               </div>
-               <p className="font-black text-slate-600 text-lg">The kitchen is currently empty</p>
-               <p className="text-slate-400 font-medium">Use the New Recipe button to start your collection</p>
+            <div className="col-span-full border-2 border-dashed border-slate-200 rounded-[3rem] h-80 flex items-center justify-center text-slate-400">
+               <p className="font-bold">Collection is empty.</p>
             </div>
           )}
         </div>
       </section>
 
-      {/* Import Modal */}
       <RecipeModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
