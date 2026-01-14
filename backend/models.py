@@ -62,9 +62,18 @@ class ShoppingListItem(Base):
     is_purchased = Column(Boolean, default=False)
     ingredient = relationship("Ingredient")
 
+# --- UPDATED V6: DATA-DRIVEN USER PROFILE ---
 class UserProfile(Base):
     __tablename__ = "user_profiles"
     id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, default="User")
+    age = Column(Integer, default=25)
+    weight_kg = Column(Float, default=70.0)
+    height_cm = Column(Float, default=175.0)
+    gender = Column(String, default="male") # male/female/other
+    activity_level = Column(String, default="moderate") # sedentary, light, moderate, active, very_active
+    
+    # Calculated or Overridden Goals
     daily_calorie_goal = Column(Integer, default=2000)
     daily_protein_goal = Column(String, default="150g")
     daily_carbs_goal = Column(String, default="250g")

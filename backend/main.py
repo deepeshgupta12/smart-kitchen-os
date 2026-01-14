@@ -186,3 +186,56 @@ def get_expiry_alerts(db: Session = Depends(database.get_db)):
     upcoming = date.today() + timedelta(days=3)
     expiring = db.query(models.PantryItem).filter(models.PantryItem.expiry_date <= upcoming).all()
     return [{"item": i.ingredient.name, "expiry": i.expiry_date} for i in expiring]
+
+# --- NEW V6: PROFILE MANAGEMENT & CALCULATION ---
+
+def calculate_nutritional_goals(user: models.UserProfile):
+    """
+    Harris-Benedict Equation for BMR + Activity Multiplier.
+    """
+    # Base BMR calculation
+    if user.gender.lower() == "male":
+        bmr = 88.36 + (13.4 * user.weight_kg) + (4.8 * user.height_cm) - (5.7 * user.age)
+    else:
+        bmr = 447.6 + (9.2 * user.weight_kg) + (3.1 * user.height_cm) - (4.3 * user.age)
+    
+    # Activity Multipliers
+    multipliers = {
+        "sedentary": 1.2, "light": 1.375, "moderate": 1.55, 
+        "active": 1.725, "very_active": 1.9
+    }
+    tdee = bmr * multipliers.get(user.activity_level, 1.2)
+    
+    # Simple 40/30/30 Carb/Protein/Fat Split
+    protein_g = (tdee * 0.30) / 4
+    carbs_g = (tdee * 0.40) / 4
+    fats_g = (tdee * 0.30) / 9
+    
+    return int(tdee), f"{int(protein_g)}g", f"{int(carbs_g)}g", f"{int(fats_g)}g"
+
+@app.get("/profile")
+def get_profile(db: Session = Depends(database.get_db)):
+    profile = db.query(models.UserProfile).first()
+    if not profile:
+        profile = models.UserProfile()
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+    return profile
+
+@app.put("/profile")
+def update_profile(data: dict, db: Session = Depends(database.get_db)):
+    profile = db.query(models.UserProfile).first()
+    for key, value in data.items():
+        if hasattr(profile, key):
+            setattr(profile, key, value)
+    
+    # Recalculate goals based on new metrics
+    cals, protein, carbs, fats = calculate_nutritional_goals(profile)
+    profile.daily_calorie_goal = cals
+    profile.daily_protein_goal = protein
+    profile.daily_carbs_goal = carbs
+    profile.daily_fats_goal = fats
+    
+    db.commit()
+    return profile
