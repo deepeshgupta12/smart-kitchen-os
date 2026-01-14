@@ -1,101 +1,124 @@
-# 🍳 SmartKitchen OS: Technical Product Requirement Document (PRD)
+# 🍳 SmartKitchen OS: V6.1 Personalized Intelligence
 
-### **Product Overview**
+**SmartKitchen OS** is an advanced, AI-powered culinary operating system designed to bridge the gap between nutritional goals, inventory management, and automated meal planning. By leveraging Large Language Models (LLMs) and a proactive data-driven backend, the system transforms the kitchen from a passive space into an intelligent health assistant.
 
-SmartKitchen OS is an AI-native ecosystem designed for high-precision meal planning and health optimization. Unlike generic recipe apps, it treats culinary data as a structured logistics problem—transforming raw text into actionable, visually-enriched data points for automated shopping and calorie tracking.
+## 📝 Problem Statement
 
----
-
-## **1. Core Functional Modules**
-
-### **A. AI Recipe Rover (Extraction Engine)**
-
-* **Mechanism:** Uses `gpt-4o-mini` with strict JSON-schema enforcement (via Pydantic) to parse unstructured text/URLs.
-* **Enrichment:** Every extraction triggers a dual-stream OpenAI DALL-E 3 request to generate professional-grade imagery for both the **Dish** and individual **Ingredients**.
-* **Aisle Tagging:** Automatically maps ingredients to categories (e.g., *Produce, Dairy, Pantry*) for a "Blinkit-style" sorted shopping experience.
-
-### **B. Logistics & Aggregate Planning**
-
-* **7-Day Grid:** A dynamic calendar allowing users to "Schedule" meals into Breakfast, Lunch, or Dinner slots.
-* **Ingredient Aggregator:** A backend SQL logic that performs a `SUM()` on all required ingredients for the planned week, consolidating quantities (e.g., 250g + 100g = 350g) to streamline procurement.
-
-### **C. Health Intelligence Layer**
-
-* **Date-Specific Tracking:** A multi-date calorie tracker that calculates nutritional "Actual vs. Goal" based on the user's focus date in the UI.
-* **Smart Gap-Filler (Recommendation Engine):** A context-aware engine that analyzes:
-1. **Remaining Calorie Budget** (Actual vs. Goal).
-2. **Current Ingredient Inventory** (Items already in the Shopping List).
-3. **Meal Slot Constraint** (Breakfast vs. Lunch vs. Dinner).
-
-
+In a fast-paced world, individuals struggle with three primary kitchen challenges: **Health Management** (tracking macros and calories manually is tedious), **Inventory Waste** (ingredients expire or are forgotten), and **Decision Fatigue** (deciding what to cook based on what is actually in the fridge). SmartKitchen OS solves these by automating inventory tracking, calculating nutritional needs based on physical metrics, and providing AI-driven meal recommendations.
 
 ---
 
-## **2. Technical Specifications**
+## 🚀 Product Scope & Roadmap
 
-### **Database Schema (ERD Logic)**
+### **Core Scope**
 
-| Table | Primary Responsibility |
-| --- | --- |
-| `dishes` | Stores recipe metadata, DALL-E image URLs, and nutritional JSON. |
-| `ingredients` | Unique master list of items with Blinkit-style category tags. |
-| `meal_plans` | The "Intent" table linking `dish_id` to a `planned_date` and `meal_slot`. |
-| `user_profiles` | Stores personalized health targets (Default: 2000 kcal). |
+* **AI Recipe Extraction**: Converting raw text/images into structured, Michelin-star quality culinary data.
+* **Proactive Pantry**: Real-time stock tracking with autonomous deduction upon meal completion.
+* **Health Intelligence**: Dynamic BMR-based goal calculation and real-time consumption tracking.
+* **Autonomous Replenishment**: Unified shopping lists that merge recipe requirements with safety stock buffers.
 
-### **API Endpoints**
+### **Version History**
 
-* `POST /extract-recipe`: The AI data-parsing and image-generation entry point.
-* `GET /health-stats/{date}`: Returns nutritional totals for a specific date.
-* `GET /recommend-me`: Triggers the LLM "Gap-Filling" logic using current inventory context.
-* `DELETE /meal-planner/{id}`: Safely removes a scheduled meal and updates the health bar.
+| Version | Focus | Status |
+| --- | --- | --- |
+| **V1 - V3** | **Foundation** | ✅ Implemented |
+| **V4** | **AI Core** | ✅ Implemented |
+| **V5.3** | **Autonomous Pantry** | ✅ Implemented |
+| **V6.1** | **Health Intelligence** | ✅ Implemented |
+| **V7** | **Vision AI: "Scan the Dish"** | ⏳ Planned |
+| **V8** | **Social & Collaborative** | ⏳ Planned |
+| **V9** | **Polish & Persistence** | ⏳ Planned |
 
 ---
 
-## **3. Developer Setup Guide**
+## 🛠 Implemented Features & Process Descriptions
+
+### **1. AI-Driven Recipe Lifecycle (V4)**
+
+The system uses **GPT-4o-mini** to parse unstructured text into high-fidelity JSON objects. This process includes generating professional preparation steps and realistic nutritional estimates. Each dish is then paired with a professional 4K image generated via **DALL-E 3**.
+
+### **2. Autonomous Pantry Cycle (V5.3)**
+
+Unlike traditional inventory apps, SmartKitchen OS features an **Autonomous Kitchen Cycle**. When a user marks a meal as "Complete" in the Frontend, the Backend iterates through the recipe's ingredients, performs AI-assisted unit conversion (e.g., pieces to grams), and deducts the exact amount from the `pantry_inventory` table.
+
+### **3. Personalized Health Profiles (V6.1)**
+
+V6 introduces the **Harris-Benedict Calculator**. The system no longer relies on static goals. Instead, it calculates Total Daily Energy Expenditure (TDEE) based on user-provided weight, height, age, and activity level. These goals are then dynamically compared against the day's planned meals in a visual dashboard.
+
+---
+
+## 💻 Core Code Snippets
+
+### **The "Smart" Shopping List Logic**
+
+This endpoint bridges three tables to ensure you never run out of essentials while planning for specific recipes.
+
+```python
+# main.py snippet
+@app.get("/shopping-list")
+def get_shopping_list(db: Session = Depends(database.get_db)):
+    # Join Ingredient -> DishIngredient -> MealPlan
+    recipe_needs = db.query(...).select_from(models.Ingredient).join(...).all()
+    
+    # Merge with Safety Buffers
+    for name, item in pantry_map.items():
+        if item.current_quantity < item.min_threshold:
+            # Logic to add shortfall to the final list
+
+```
+
+### **Dynamic Goal Calculation**
+
+```python
+# main.py snippet
+def calculate_nutritional_goals(user: models.UserProfile):
+    bmr = 88.36 + (13.4 * user.weight_kg) + (4.8 * user.height_cm) - (5.7 * user.age)
+    tdee = bmr * multipliers.get(user.activity_level, 1.2)
+    return int(tdee), protein_g, carbs_g, fats_g
+
+```
+
+---
+
+## ⚙️ Installation & Implementation Process
 
 ### **Prerequisites**
 
-* Python 3.10+ & Node.js 18+
-* Docker (for PostgreSQL)
-* OpenAI API Key (with DALL-E 3 access)
+* **Python 3.10+** (Backend)
+* **Next.js 14** (Frontend)
+* **PostgreSQL** (Database)
+* **OpenAI API Key** (Vision & Language services)
 
-### **Installation Sequence**
+### **Backend Setup**
 
-**1. Infrastructure**
+1. **Environment**: Create a `.env` file with your `DATABASE_URL` and `OPENAI_API_KEY`.
+2. **Database Sync**: Run the provided migration scripts (`migrate_v5.py`, `migrate_v6.py`) to update the PostgreSQL schema with new columns like `min_threshold` and `activity_level`.
+3. **Run**: Execute `uvicorn main:app --reload`.
+
+### **Frontend Setup**
+
+1. **Install Dependencies**: `npm install lucide-react axios`.
+2. **Navigation**: Ensure `Navbar.tsx` is integrated into the primary layout to access the `/profile` route.
+3. **Run**: Execute `npm run dev`.
+
+---
+
+## 📡 Terminal Command History
 
 ```bash
-# Spin up the PostgreSQL Database
-docker-compose up -d
+# Migration
+python migrate_v5.py && python migrate_v6.py
 
-```
-
-**2. Backend (FastAPI)**
-
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install fastapi uvicorn sqlalchemy psycopg2-binary openai pydantic-settings python-dotenv
-# Create .env with OPENAI_API_KEY=your_key_here
+# Launch
 uvicorn main:app --reload
 
-```
-
-**3. Frontend (Next.js)**
-
-```bash
-cd frontend
-npm install
-npm run dev
+# Git Versioning
+git add .
+git commit -m "feat(v6.1): finalize health profiles and pantry auto-deduction"
+git push origin main
 
 ```
 
 ---
 
-## **4. Implementation Status (V1 - V4)**
-
-* ✅ **Phase 1: Foundation** (Postgres + FastAPI + Next.js setup).
-* ✅ **Phase 2: Data** (AI Extraction + DALL-E Image Generation).
-* ✅ **Phase 3: Logistics** (7-Day Planner + Shopping List Aggregation).
-* ✅ **Phase 4: Intelligence** (Health Tracker + Smart Recommendation Loop).
-* 🚧 **Phase 5: Vision AI** (Reverse-engineering recipes from photos - *In Progress*).
+**Would you like me to create the initial `vision_service.py` skeleton to begin our work on V7 - Vision AI?**
