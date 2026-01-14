@@ -17,7 +17,7 @@ class Dish(Base):
     description = Column(Text)
     thumbnail_url = Column(String, nullable=True) 
     cuisine = Column(String)
-    meal_type = Column(String) # Breakfast, Lunch, Dinner
+    meal_type = Column(String) 
     prep_steps = Column(JSON) 
     nutrition = Column(JSON) 
     ingredients = relationship("DishIngredient", back_populates="dish")
@@ -33,7 +33,7 @@ class Ingredient(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     thumbnail_url = Column(String, nullable=True)
-    category = Column(String) # Produce, Dairy, Pantry etc.
+    category = Column(String) 
 
 class DishIngredient(Base):
     __tablename__ = "dish_ingredients"
@@ -50,7 +50,7 @@ class MealPlan(Base):
     id = Column(Integer, primary_key=True, index=True)
     dish_id = Column(Integer, ForeignKey("dishes.id"))
     planned_date = Column(Date) 
-    meal_slot = Column(String) # Breakfast, Lunch, Dinner
+    meal_slot = Column(String) 
     dish = relationship("Dish")
 
 class ShoppingListItem(Base):
@@ -66,7 +66,6 @@ class UserProfile(Base):
     __tablename__ = "user_profiles"
     id = Column(Integer, primary_key=True, index=True)
     daily_calorie_goal = Column(Integer, default=2000)
-    # Using String for 'g' suffix as requested
     daily_protein_goal = Column(String, default="150g")
     daily_carbs_goal = Column(String, default="250g")
     daily_fats_goal = Column(String, default="70g")
@@ -78,6 +77,6 @@ class PantryItem(Base):
     current_quantity = Column(Float)
     unit = Column(String)
     last_updated = Column(Date, default=date.today)
-    min_threshold = Column(Float, default=1.0) # V5.3 Safety Buffer
-    expiry_date = Column(Date, nullable=True)  # V5.3 Expiry Tracking
+    min_threshold = Column(Float, default=1.0) 
+    expiry_date = Column(Date, nullable=True)
     ingredient = relationship("Ingredient")

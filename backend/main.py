@@ -55,8 +55,14 @@ def get_recipe(recipe_id: int, db: Session = Depends(database.get_db)):
 
 # --- MEAL PLANNING & AUTO-DEDUCTION ---
 
+@app.get("/meal-planner", response_model=list[schemas.MealPlanResponse])
+def get_meal_plan(db: Session = Depends(database.get_db)):
+    """Fetch the current meal plan."""
+    return db.query(models.MealPlan).all()
+
 @app.post("/meal-planner", response_model=schemas.MealPlanResponse)
 def add_to_planner(plan: schemas.MealPlanCreate, db: Session = Depends(database.get_db)):
+    """Add a dish to the planner."""
     new_entry = models.MealPlan(
         dish_id=plan.dish_id,
         planned_date=plan.planned_date,
@@ -69,9 +75,7 @@ def add_to_planner(plan: schemas.MealPlanCreate, db: Session = Depends(database.
 
 @app.post("/meal-planner/{plan_id}/complete")
 def complete_meal(plan_id: int, db: Session = Depends(database.get_db)):
-    """
-    V5.3 Logic: Deduct ingredients from pantry when meal is done.
-    """
+    """Mark meal as cooked and deduct ingredients from pantry."""
     plan_entry = db.query(models.MealPlan).filter(models.MealPlan.id == plan_id).first()
     if not plan_entry:
         raise HTTPException(status_code=404, detail="Plan entry not found")
@@ -91,7 +95,7 @@ def complete_meal(plan_id: int, db: Session = Depends(database.get_db)):
     
     db.delete(plan_entry)
     db.commit()
-    return {"status": "success", "message": "Pantry updated and meal marked complete."}
+    return {"status": "success", "message": "Pantry inventory updated."}
 
 # --- HEALTH INTELLIGENCE ---
 
@@ -135,11 +139,7 @@ def get_pantry(db: Session = Depends(database.get_db)):
 
 @app.get("/shopping-list")
 def get_shopping_list(db: Session = Depends(database.get_db)):
-    """
-    V5.3 ENHANCEMENT: Unified Shopping List.
-    Combines Recipe-based gaps + Safety Stock requirements.
-    """
-    # 1. Fetch requirements for planned meals
+    """Unified logic combining recipe needs and safety buffers."""
     recipe_needs = (
         db.query(
             models.Ingredient.name.label("name"),
@@ -158,7 +158,6 @@ def get_shopping_list(db: Session = Depends(database.get_db)):
     pantry_map = {item.ingredient.name: item for item in pantry_items}
     shopping_dict = {}
 
-    # Logic A: Planned Recipe Requirements
     for need in recipe_needs:
         p_item = pantry_map.get(need.name)
         on_hand = 0
@@ -171,7 +170,6 @@ def get_shopping_list(db: Session = Depends(database.get_db)):
         if gap > 0:
             shopping_dict[need.name] = {"name": need.name, "quantity": round(gap, 2), "unit": need.unit, "reason": "Planned Meals"}
 
-    # Logic B: Essential Safety Buffer
     for name, item in pantry_map.items():
         if item.current_quantity < item.min_threshold:
             shortfall = item.min_threshold - item.current_quantity
