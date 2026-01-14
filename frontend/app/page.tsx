@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, ChefHat, ShoppingBasket, Calendar, Plus, Sparkles, ArrowRight, ThermometerSnowflake } from 'lucide-react';
+// Added User icon to the imports below
+import { Search, ChefHat, ShoppingBasket, Calendar, Plus, Sparkles, ArrowRight, ThermometerSnowflake, User } from 'lucide-react';
 import RecipeModal from '@/components/RecipeModal';
 import { getAllRecipes } from '@/lib/api';
 
@@ -31,6 +32,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] text-slate-900">
+      {/* --- NAVIGATION BAR --- */}
       <nav className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-2">
           <div className="bg-green-600 p-1.5 rounded-lg">
@@ -51,22 +53,27 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-6 text-slate-600">
-          {/* UPDATED: Added Link for redirection to /planner */}
           <Link href="/pantry" className="flex flex-col items-center hover:text-green-600 transition-colors">
             <ThermometerSnowflake className="w-6 h-6" />
-              <span className="text-[10px] uppercase font-bold mt-1">Pantry</span>
+            <span className="text-[10px] uppercase font-bold mt-1">Pantry</span>
           </Link>
           <Link href="/planner" className="flex flex-col items-center hover:text-green-600 transition-colors">
             <Calendar className="w-6 h-6" />
             <span className="text-[10px] uppercase font-bold mt-1">Planner</span>
           </Link>
           <Link href="/cart" className="flex flex-col items-center hover:text-green-600 transition-colors">
-          <ShoppingBasket className="w-6 h-6" />
-          <span className="text-[10px] uppercase font-bold mt-1">Cart</span>
+            <ShoppingBasket className="w-6 h-6" />
+            <span className="text-[10px] uppercase font-bold mt-1">Cart</span>
+          </Link>
+          {/* NEW: V6 Profile Navigation Link */}
+          <Link href="/profile" className="flex flex-col items-center hover:text-green-600 transition-colors">
+            <User className="w-6 h-6" />
+            <span className="text-[10px] uppercase font-bold mt-1">Profile</span>
           </Link>
         </div>
       </nav>
 
+      {/* --- MAIN CONTENT --- */}
       <section className="max-w-7xl mx-auto p-8">
         <div className="flex items-center justify-between mb-10">
           <div>
