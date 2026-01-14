@@ -127,34 +127,23 @@ def remove_from_planner(plan_id: int, db: Session = Depends(database.get_db)):
 @app.post("/meal-planner/{plan_id}/complete")
 def complete_meal(plan_id: int, db: Session = Depends(database.get_db)):
     """
-    V5.3 Logic: Deduct ingredients from pantry when a meal is marked 'Cooked'.
+    Deducts ingredients from pantry and removes meal from planner.
     """
     plan_entry = db.query(models.MealPlan).filter(models.MealPlan.id == plan_id).first()
     if not plan_entry:
         raise HTTPException(status_code=404, detail="Plan entry not found")
 
-    dish = plan_entry.dish
-    
-    # 1. Deduct each ingredient from the pantry
-    for dish_ing in dish.ingredients:
-        pantry_item = db.query(models.PantryItem).filter(
-            models.PantryItem.ingredient_id == dish_ing.ingredient_id
-        ).first()
-        
+    for dish_ing in plan_entry.dish.ingredients:
+        pantry_item = db.query(models.PantryItem).filter(models.PantryItem.ingredient_id == dish_ing.ingredient_id).first()
         if pantry_item:
-            # Check for unit mismatches before deduction
-            deduction_qty = dish_ing.quantity
+            deduction = dish_ing.quantity
             if pantry_item.unit.lower() != dish_ing.unit.lower():
-                # AI-assisted conversion for accurate deduction
-                deduction_qty = ai_service.get_unit_conversion(
-                    dish_ing.ingredient.name, dish_ing.quantity, dish_ing.unit, pantry_item.unit
-                )
-            
-            pantry_item.current_quantity = max(0, pantry_item.current_quantity - deduction_qty)
-
-    # 2. Remove the meal from the planner after completion
+                deduction = ai_service.get_unit_conversion(dish_ing.ingredient.name, dish_ing.quantity, dish_ing.unit, pantry_item.unit)
+            pantry_item.current_quantity = max(0, pantry_item.current_quantity - deduction)
+    
     db.delete(plan_entry)
     db.commit()
+    return {"message": "Meal cooked, pantry updated."}
     
     return {"status": "Meal completed and pantry inventory updated"}
 
@@ -238,50 +227,49 @@ def update_pantry(item_name: str, quantity: float, unit: str, db: Session = Depe
 
 @app.get("/shopping-list")
 def get_shopping_list(db: Session = Depends(database.get_db)):
-    """
-    V5.3 ENHANCEMENT: AI-Driven Unit Normalization for Gap Analysis.
-    FIXED: Explicit joins to resolve 'Don't know how to join to MealPlan' error.
-    """
-    required = (
-        db.query(
-            models.Ingredient.name, 
-            models.Ingredient.category, 
-            models.Ingredient.thumbnail_url,
-            func.sum(models.DishIngredient.quantity).label("gross_qty"), 
-            models.DishIngredient.unit
-        )
-        .join(models.DishIngredient, models.Ingredient.id == models.DishIngredient.ingredient_id)
-        .join(models.MealPlan, models.DishIngredient.dish_id == models.MealPlan.dish_id)
-        .group_by(
-            models.Ingredient.name, 
-            models.Ingredient.category, 
-            models.Ingredient.thumbnail_url, 
-            models.DishIngredient.unit
-        ).all()
-    )
+    # 1. Get total requirements from Meal Plan
+    recipe_needs = db.query(
+        models.Ingredient.name.label("name"),
+        models.Ingredient.category.label("category"),
+        func.sum(models.DishIngredient.quantity).label("gross_qty"),
+        models.DishIngredient.unit.label("unit")
+    ).join(models.DishIngredient).join(models.MealPlan).group_by(models.Ingredient.name, models.Ingredient.category, models.DishIngredient.unit).all()
 
-    pantry_stock = db.query(models.PantryItem).all()
-    stock_map = {item.ingredient.name: (item.current_quantity, item.unit) for item in pantry_stock}
+    # 2. Get current pantry state
+    pantry_items = db.query(models.PantryItem).all()
+    pantry_map = {item.ingredient.name: item for item in pantry_items}
+    
+    shopping_dict = {}
 
-    final_list = []
-    for item in required:
-        stock_data = stock_map.get(item.name)
-        net_needed = item.gross_qty
-
-        if stock_data:
-            on_hand_qty, on_hand_unit = stock_data
-            
-            if on_hand_unit.lower() != item.unit.lower():
-                converted_stock = ai_service.get_unit_conversion(
-                    item.name, on_hand_qty, on_hand_unit, item.unit
-                )
-                net_needed = max(0, item.gross_qty - converted_stock)
-            else:
-                net_needed = max(0, item.gross_qty - on_hand_qty)
+    # Logic A: Add items required by Recipes
+    for need in recipe_needs:
+        pantry_item = pantry_map.get(need.name)
+        on_hand = 0
+        if pantry_item:
+            on_hand = pantry_item.current_quantity
+            if pantry_item.unit.lower() != need.unit.lower():
+                on_hand = ai_service.get_unit_conversion(need.name, pantry_item.current_quantity, pantry_item.unit, need.unit)
         
-        if net_needed > 0:
-            final_list.append({
-                "name": item.name, "category": item.category, "thumbnail_url": item.thumbnail_url,
-                "quantity": round(net_needed, 2), "unit": item.unit
-            })
-    return final_list
+        gap = max(0, need.gross_qty - on_hand)
+        if gap > 0:
+            shopping_dict[need.name] = {"name": need.name, "quantity": round(gap, 2), "unit": need.unit, "reason": "Meal Plan"}
+
+    # Logic B: Add items below Safety Threshold (Buffer)
+    for name, p_item in pantry_map.items():
+        if p_item.current_quantity < p_item.min_threshold:
+            shortfall = p_item.min_threshold - p_item.current_quantity
+            if name in shopping_dict:
+                shopping_dict[name]["quantity"] += round(shortfall, 2)
+                shopping_dict[name]["reason"] += " + Safety Buffer"
+            else:
+                shopping_dict[name] = {"name": name, "quantity": round(shortfall, 2), "unit": p_item.unit, "reason": "Safety Buffer"}
+
+    return list(shopping_dict.values())
+
+# --- NEW V5 USE CASE: EXPIRY ALERTS ---
+@app.get("/pantry/expiry-alerts")
+def get_expiry_alerts(db: Session = Depends(database.get_db)):
+    today = date.today()
+    upcoming = today + timedelta(days=3)
+    expiring_soon = db.query(models.PantryItem).filter(models.PantryItem.expiry_date <= upcoming).all()
+    return [{"item": i.ingredient.name, "expiry": i.expiry_date} for i in expiring_soon]

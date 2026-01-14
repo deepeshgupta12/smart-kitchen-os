@@ -90,5 +90,9 @@ class PantryItem(Base):
     unit = Column(String)
     expiry_date = Column(Date, nullable=True)
     last_updated = Column(Date, default=date.today)
+    # --- NEW V5 ENHANCEMENT ---
+    min_threshold = Column(Float, default=1.0) 
+    expiry_date = Column(Date, nullable=True)
+    # --------------------------
 
     ingredient = relationship("Ingredient")
