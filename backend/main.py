@@ -73,6 +73,16 @@ def add_to_planner(plan: schemas.MealPlanCreate, db: Session = Depends(database.
     db.refresh(new_entry)
     return new_entry
 
+@app.delete("/meal-planner/{plan_id}")
+def remove_from_planner(plan_id: int, db: Session = Depends(database.get_db)):
+    """RESTORED: Endpoint to remove items from the planner UI."""
+    plan_entry = db.query(models.MealPlan).filter(models.MealPlan.id == plan_id).first()
+    if not plan_entry:
+        raise HTTPException(status_code=404, detail="Plan entry not found")
+    db.delete(plan_entry)
+    db.commit()
+    return {"status": "success", "message": "Meal removed from planner"}
+
 @app.post("/meal-planner/{plan_id}/complete")
 def complete_meal(plan_id: int, db: Session = Depends(database.get_db)):
     """Mark meal as cooked and deduct ingredients from pantry."""
@@ -125,6 +135,25 @@ def get_health_stats(date_str: str, db: Session = Depends(database.get_db)):
             "fats": profile.daily_fats_goal
         }
     }
+
+@app.get("/recommend-me")
+def recommend_meal(slot: str = Query("Dinner"), db: Session = Depends(database.get_db)):
+    """RESTORED: AI recommendation logic to fix 404 on UI."""
+    today_str = date.today().isoformat()
+    health_data = get_health_stats(today_str, db)
+    # Extract integer from calorie goals
+    remaining = health_data["goals"].get("daily_calorie_goal", 2000) - health_data["actual"]["calories"]
+
+    ingredients = db.query(models.Ingredient.name).select_from(models.Ingredient).join(
+        models.DishIngredient, models.Ingredient.id == models.DishIngredient.ingredient_id
+    ).join(
+        models.MealPlan, models.DishIngredient.dish_id == models.MealPlan.dish_id
+    ).distinct().all()
+    
+    ing_list = [i.name for i in ingredients]
+    recommendation = ai_service.get_smart_recommendation(max(0, remaining), ing_list, slot)
+    
+    return {"recommendation": recommendation}
 
 # --- DYNAMIC PANTRY & UNIFIED SHOPPING ---
 
