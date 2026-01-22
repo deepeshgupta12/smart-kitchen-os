@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 // Added User icon to the imports below
-import { Search, ChefHat, ShoppingBasket, Calendar, Plus, Sparkles, ArrowRight, ThermometerSnowflake, User } from 'lucide-react';
+import { Search, ChefHat, ShoppingBasket, Calendar, Plus, Sparkles, ArrowRight, ThermometerSnowflake, User, Database } from 'lucide-react';
 import RecipeModal from '@/components/RecipeModal';
 import { getAllRecipes } from '@/lib/api';
 
@@ -51,6 +51,11 @@ export default function Home() {
             />
           </div>
         </div>
+
+        <Link href="/cms" className="flex flex-col items-center hover:text-green-600 transition-colors">
+        <Database className="w-6 h-6" />
+          <span className="text-[10px] uppercase font-bold mt-1">CMS</span>
+        </Link>
 
         <div className="flex items-center gap-6 text-slate-600">
           <Link href="/pantry" className="flex flex-col items-center hover:text-green-600 transition-colors">

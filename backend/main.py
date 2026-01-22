@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload #
 from datetime import date, timedelta
 import database
 import models
@@ -25,7 +26,25 @@ app.add_middleware(
 
 @app.get("/recipes", response_model=list[schemas.RecipeResponse])
 def get_all_recipes(db: Session = Depends(database.get_db)):
-    return db.query(models.Dish).all()
+    dishes = db.query(models.Dish).options(
+        joinedload(models.Dish.ingredients).joinedload(models.DishIngredient.ingredient)
+    ).all()
+
+    # Manually flattening for the response model
+    return [
+        {
+            **dish.__dict__,
+            "ingredients": [
+                {
+                    "name": ing.ingredient.name,
+                    "quantity": ing.quantity,
+                    "unit": ing.unit,
+                    "category": ing.ingredient.category,
+                    "thumbnail_url": ing.ingredient.thumbnail_url
+                } for ing in dish.ingredients
+            ]
+        } for dish in dishes
+    ]
 
 @app.get("/recipes/{recipe_id}")
 def get_recipe(recipe_id: int, db: Session = Depends(database.get_db)):
@@ -52,6 +71,173 @@ def get_recipe(recipe_id: int, db: Session = Depends(database.get_db)):
             } for ing in recipe.ingredients
         ]
     }
+
+@app.post("/extract-recipe", response_model=schemas.RecipeResponse)
+def extract_recipe(text_input: str, db: Session = Depends(database.get_db)):
+    """
+    V6.5 CMS Logic: Local Persistence and API Cost Mitigation.
+    """
+    # 1. Look for the dish in the local CMS first
+    existing_dish = db.query(models.Dish).filter(models.Dish.name.ilike(f"%{text_input}%")).first()
+    
+    if existing_dish:
+        # Returns the cached version immediately
+        return existing_dish
+
+    # 2. Cache Miss: Execute AI Pipeline only for new discoveries
+    try:
+        data = ai_service.extract_recipe_logic(text_input)
+        dish_image = ai_service.generate_professional_image(f"{data.cuisine} {data.name}")
+        
+        new_dish = models.Dish(
+            name=data.name,
+            description=data.description,
+            thumbnail_url=dish_image,
+            cuisine=data.cuisine,
+            meal_type=", ".join(data.suitable_for) if data.suitable_for else "Meal",
+            prep_steps=data.prep_steps,
+            nutrition=data.nutrition.dict()
+        )
+        db.add(new_dish)
+        db.commit()
+        db.refresh(new_dish)
+
+        # 3. Persistent Mapping of Ingredients
+        for ing in data.ingredients:
+            db_ing = db.query(models.Ingredient).filter(models.Ingredient.name == ing.name).first()
+            if not db_ing:
+                ing_image = ai_service.generate_professional_image(f"fresh raw {ing.name}")
+                db_ing = models.Ingredient(name=ing.name, category=ing.category, thumbnail_url=ing_image)
+                db.add(db_ing)
+                db.commit()
+                db.refresh(db_ing)
+            
+            dish_ing = models.DishIngredient(
+                dish_id=new_dish.id, 
+                ingredient_id=db_ing.id, 
+                quantity=ing.quantity, 
+                unit=ing.unit
+            )
+            db.add(dish_ing)
+        
+        db.commit()
+        db.refresh(new_dish)
+        return new_dish
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/cms/recipes", response_model=list[schemas.RecipeResponse])
+def get_cms_recipes(db: Session = Depends(database.get_db)):
+    """
+    V6.5 Enhancement: Returns flattened data for the CMS dashboard table.
+    """
+    dishes = db.query(models.Dish).options(
+        joinedload(models.Dish.ingredients).joinedload(models.DishIngredient.ingredient)
+    ).all()
+    
+    return [
+        {
+            **dish.__dict__,
+            "ingredients": [
+                {
+                    "name": ing.ingredient.name,
+                    "quantity": ing.quantity,
+                    "unit": ing.unit,
+                    "category": ing.ingredient.category,
+                    "thumbnail_url": ing.ingredient.thumbnail_url
+                } for ing in dish.ingredients
+            ]
+        } for dish in dishes
+    ]
+
+@app.get("/cms/recipes/{recipe_id}", response_model=schemas.RecipeResponse)
+def get_cms_recipe_detail(recipe_id: int, db: Session = Depends(database.get_db)):
+    """
+    Fetches the complete persistent entity mapping for the Detail View.
+    """
+    recipe = db.query(models.Dish).options(
+        joinedload(models.Dish.ingredients).joinedload(models.DishIngredient.ingredient)
+    ).filter(models.Dish.id == recipe_id).first()
+    
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    # Explicitly constructing the response to ensure ingredients list is populated
+    return {
+        "id": recipe.id,
+        "name": recipe.name,
+        "description": recipe.description,
+        "cuisine": recipe.cuisine,
+        "meal_type": recipe.meal_type,
+        "thumbnail_url": recipe.thumbnail_url,
+        "prep_steps": recipe.prep_steps,
+        "nutrition": recipe.nutrition,
+        "ingredients": [
+            {
+                "name": ing.ingredient.name,
+                "quantity": ing.quantity,
+                "unit": ing.unit,
+                "category": ing.ingredient.category,
+                "thumbnail_url": ing.ingredient.thumbnail_url
+            } for ing in recipe.ingredients
+        ]
+    }
+
+@app.put("/cms/recipes/{recipe_id}", response_model=schemas.RecipeResponse)
+def update_cms_recipe(recipe_id: int, data: dict, db: Session = Depends(database.get_db)):
+    """
+    Manually update persistent dish entities. Changes are stored in DB 
+    and reflected across the OS.
+    """
+    dish = db.query(models.Dish).filter(models.Dish.id == recipe_id).first()
+    if not dish:
+        raise HTTPException(status_code=404, detail="Dish not found")
+
+    # Update basic fields and JSON entities (Nutrition, Prep Steps)
+    for key in ["name", "description", "cuisine", "prep_steps", "nutrition"]:
+        if key in data:
+            setattr(dish, key, data[key])
+
+    # Update Ingredients if provided
+    if "ingredients" in data:
+        # Clear existing mappings for this dish
+        db.query(models.DishIngredient).filter(models.DishIngredient.dish_id == recipe_id).delete()
+        
+        for ing in data["ingredients"]:
+            # Find or create ingredient entity
+            db_ing = db.query(models.Ingredient).filter(models.Ingredient.name == ing["name"]).first()
+            if not db_ing:
+                db_ing = models.Ingredient(name=ing["name"], category=ing.get("category", "Pantry"))
+                db.add(db_ing); db.commit(); db.refresh(db_ing)
+            
+            db.add(models.DishIngredient(
+                dish_id=dish.id, 
+                ingredient_id=db_ing.id, 
+                quantity=ing["quantity"], 
+                unit=ing["unit"]
+            ))
+
+    db.commit()
+    db.refresh(dish)
+    return dish
+
+@app.post("/cms/recipes/{recipe_id}/regenerate")
+def regenerate_dish_content(recipe_id: int, db: Session = Depends(database.get_db)):
+    """
+    Force-clears local data and hits OpenAI API again for fresh content.
+    """
+    dish = db.query(models.Dish).filter(models.Dish.id == recipe_id).first()
+    if not dish:
+        raise HTTPException(status_code=404, detail="Dish not found")
+    
+    dish_name = dish.name
+    # Delete existing dish to trigger the logic in /extract-recipe
+    db.delete(dish)
+    db.commit()
+    
+    # Re-trigger extraction
+    return extract_recipe(text_input=dish_name, db=db)
 
 # --- MEAL PLANNING & AUTO-DEDUCTION ---
 

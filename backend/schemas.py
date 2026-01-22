@@ -34,6 +34,8 @@ class RecipeResponse(BaseModel):
     meal_type: Optional[str] = "Meal"
     nutrition: Optional[dict] = None
     thumbnail_url: Optional[str] = None # CRITICAL: Ensure this exists
+    prep_steps: List[str] = []  # Ensure this is included
+    ingredients: List[IngredientSchema] = [] # Ensure this is included
     
     class Config:
         from_attributes = True
