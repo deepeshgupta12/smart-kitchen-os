@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Search, ChefHat, ShoppingBasket, Calendar, Plus, Sparkles, ArrowRight, ThermometerSnowflake, User, Database } from 'lucide-react';
 import RecipeModal from '@/components/RecipeModal';
 import { getAllRecipes } from '@/lib/api';
+import { Camera, Upload } from 'lucide-react'; // Added camera icons
+import { scanImage } from '@/lib/api';
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,6 +31,31 @@ export default function Home() {
   const handleExtractionSuccess = (newRecipe: any) => {
     setRecipes((prev) => [newRecipe, ...prev]);
   };
+
+  const handleScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (e.target.files && e.target.files[0]) {
+    setLoading(true);
+    try {
+      const result = await scanImage(e.target.files[0], 'dish');
+      if (result.dish) {
+        setRecipes(prev => [result.dish, ...prev]);
+        alert(`Vision recognized: ${result.dish.name}`);
+      }
+    } catch (err) {
+      console.error("Scan error", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+};
+
+// Return UI update:
+<div className="flex gap-4">
+  <button onClick={() => setIsModalOpen(true)} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-green-700 transition-all shadow-lg active:scale-95">
+    <Plus className="w-5 h-5" />
+    New Recipe
+  </button>
+</div>
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] text-slate-900">
@@ -56,7 +83,6 @@ export default function Home() {
         <Database className="w-6 h-6" />
           <span className="text-[10px] uppercase font-bold mt-1">CMS</span>
         </Link>
-
         <div className="flex items-center gap-6 text-slate-600">
           <Link href="/pantry" className="flex flex-col items-center hover:text-green-600 transition-colors">
             <ThermometerSnowflake className="w-6 h-6" />
@@ -90,6 +116,11 @@ export default function Home() {
             className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-green-700 transition-all shadow-lg active:scale-95"
           >
             <Plus className="w-5 h-5" />
+            <label className="cursor-pointer bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg active:scale-95">
+            <Camera className="w-5 h-5" />
+            Scan Dish
+            <input type="file" accept="image/*" className="hidden" onChange={handleScan} />
+            </label>
             New Recipe
           </button>
         </div>

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -238,6 +238,26 @@ def regenerate_dish_content(recipe_id: int, db: Session = Depends(database.get_d
     
     # Re-trigger extraction
     return extract_recipe(text_input=dish_name, db=db)
+
+@app.post("/vision/scan")
+async def scan_item(file: UploadFile = File(...), mode: str = "pantry", db: Session = Depends(database.get_db)):
+    """
+    V7 Entry Point: Processes uploaded images through the Vision AI layer.
+    """
+    image_data = await file.read()
+    analysis = ai_service.analyze_image_vision(image_data, mode)
+    
+    if mode == "dish":
+        # CMS Entity Matching: Find if this dish already exists in our persistent library
+        dish_name = analysis.get("name")
+        existing = db.query(models.Dish).filter(models.Dish.name.ilike(f"%{dish_name}%")).first()
+        if existing:
+            return {"status": "match_found", "dish": existing}
+        
+        # If new, trigger the CMS extraction logic
+        return extract_recipe(text_input=dish_name, db=db)
+
+    return {"status": "success", "items": analysis.get("items", [])}
 
 # --- MEAL PLANNING & AUTO-DEDUCTION ---
 

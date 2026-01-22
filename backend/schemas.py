@@ -40,6 +40,16 @@ class RecipeResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class VisionIngredient(BaseModel):
+    name: str
+    quantity: float
+    unit: str
+
+class VisionAnalysisResponse(BaseModel):
+    status: str
+    items: Optional[List[VisionIngredient]] = None
+    dish: Optional[RecipeResponse] = None # For CMS matches
+
 # NEW: Schemas for Meal Planning
 class MealPlanCreate(BaseModel):
     dish_id: int

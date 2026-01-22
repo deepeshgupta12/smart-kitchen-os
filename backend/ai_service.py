@@ -2,6 +2,7 @@ import os
 from openai import OpenAI
 from dotenv import load_dotenv
 from schemas import RecipeSchema
+import base64
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -22,6 +23,34 @@ def generate_professional_image(prompt: str):
     except Exception as e:
         print(f"OpenAI Image Error: {e}")
         return None
+    
+def analyze_image_vision(image_bytes: bytes, mode: str = "pantry") -> dict:
+    """
+    V7 Vision Logic: Analyzes images of ingredients or prepared dishes.
+    """
+    base64_image = base64.b64encode(image_bytes).decode('utf-8')
+    
+    prompts = {
+        "pantry": "Identify all raw food ingredients in this image. For each, suggest a likely quantity and unit. Return a JSON list of objects with 'name', 'quantity', and 'unit'.",
+        "dish": "Identify the prepared cooked dish in this image. Return a single JSON object with 'name' and 'cuisine'."
+    }
+
+    response = client.chat.completions.create(
+        model="gpt-4o", # Using full gpt-4o for high-fidelity vision
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompts.get(mode, prompts["pantry"])},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                ],
+            }
+        ],
+        response_format={"type": "json_object"} # Forcing structured vision output
+    )
+    
+    import json
+    return json.loads(response.choices[0].message.content)
 
 def extract_recipe_logic(input_text: str) -> RecipeSchema:
     """
